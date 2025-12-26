@@ -1,0 +1,22 @@
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": {
+        "tool": "Write|Edit|MultiEdit",
+        "conditions": []
+      },
+      "command": "bash -c 'if [[ \"$CLAUDE_CWD\" != *\"/.worktrees/\"* ]] && [[ \"$TOOL_INPUT_PATH\" != *\".claude/\"* ]] && [[ \"$TOOL_INPUT_PATH\" != *\"specs/\"* ]]; then echo \"ERROR: Direct writes to main branch not allowed. Use worktrees.\" >&2; exit 1; fi'",
+      "description": "Prevent writes outside worktrees (except .claude/ and specs/)"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": {
+        "tool": "Write|Edit|MultiEdit",
+        "conditions": []
+      },
+      "command": "bash -c 'if [[ \"$TOOL_INPUT_PATH\" == *.py ]]; then ruff check --fix \"$TOOL_INPUT_PATH\" 2>/dev/null || true; fi'",
+      "description": "Auto-lint Python files after changes"
+    }
+  ]
+}
