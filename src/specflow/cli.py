@@ -33,15 +33,26 @@ def main() -> int:
     # status command
     subparsers.add_parser("status", help="Show project status")
 
+    # tui command
+    tui_parser = subparsers.add_parser("tui", help="Launch TUI interface")
+    tui_parser.add_argument(
+        "--path",
+        type=Path,
+        default=Path.cwd(),
+        help="Project directory (default: current directory)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "init":
         return cmd_init(args.path)
     elif args.command == "status":
         return cmd_status()
+    elif args.command == "tui":
+        return cmd_tui(args.path)
     else:
-        parser.print_help()
-        return 0
+        # Default to TUI if no command specified
+        return cmd_tui(Path.cwd())
 
 
 def cmd_init(path: Path) -> int:
@@ -64,6 +75,21 @@ def cmd_status() -> int:
         return 0
     except FileNotFoundError:
         print("Not a SpecFlow project (no .specflow directory found)", file=sys.stderr)
+        return 1
+
+
+def cmd_tui(path: Path) -> int:
+    """Launch TUI interface."""
+    try:
+        from specflow.tui.app import run_tui
+
+        run_tui(path)
+        return 0
+    except ImportError:
+        print("Error: Textual not installed. Install with: pip install textual", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Error launching TUI: {e}", file=sys.stderr)
         return 1
 
 
