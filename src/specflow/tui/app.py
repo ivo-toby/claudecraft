@@ -97,8 +97,19 @@ class SpecFlowApp(App):
             try:
                 self.project = Project.load(self.project_path / ".specflow" / "config.yaml")
                 self.sub_title = f"Project: {self.project.config.project_name}"
+
+                # Refresh all panels after project is loaded
+                self.call_after_refresh(self._refresh_all_panels)
             except FileNotFoundError:
                 self.sub_title = "No project loaded - use /specflow.init"
+
+    def _refresh_all_panels(self) -> None:
+        """Refresh all panels with project data."""
+        try:
+            specs_panel = self.query_one("#specs-panel", SpecsPanel)
+            specs_panel.refresh_specs()
+        except Exception:
+            pass
 
     def compose(self) -> ComposeResult:
         """Compose the TUI layout."""
