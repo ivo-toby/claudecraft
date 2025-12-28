@@ -33,6 +33,9 @@ class SpecEditor(Container):
         """Initialize spec editor."""
         super().__init__(**kwargs)
         self.current_spec_id: str | None = None
+        self.loaded_tabs: set[str] = set()  # Track which tabs have been loaded
+        self.spec_dir: Path | None = None
+        self.current_spec = None
 
     def compose(self) -> ComposeResult:
         """Compose the spec editor."""
@@ -60,6 +63,7 @@ class SpecEditor(Container):
     def load_spec(self, spec_id: str) -> None:
         """Load a specification into the editor."""
         self.current_spec_id = spec_id
+        self.loaded_tabs.clear()
 
         # Get project from app
         app = self.app
@@ -71,23 +75,34 @@ class SpecEditor(Container):
         if not spec:
             return
 
-        spec_dir = app.project.spec_dir(spec_id)
+        # Cache spec info for lazy loading
+        self.current_spec = spec
+        self.spec_dir = app.project.spec_dir(spec_id)
 
-        # Load overview
-        overview_md = self._generate_overview(spec, spec_dir)
+        # Only load the overview tab initially - others load on-demand
+        overview_md = self._generate_overview(spec, self.spec_dir)
         self._update_tab("tab-overview", overview_md)
+        self.loaded_tabs.add("tab-overview")
 
-        # Load spec.md
-        self._load_file_to_tab(spec_dir / "spec.md", "tab-spec")
+    def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        """Load tab content on-demand when activated."""
+        tab_id = event.tab.id
 
-        # Load plan.md
-        self._load_file_to_tab(spec_dir / "plan.md", "tab-plan")
+        # Skip if already loaded or no spec loaded
+        if tab_id in self.loaded_tabs or not self.current_spec_id or not self.spec_dir:
+            return
 
-        # Load tasks.md
-        self._load_file_to_tab(spec_dir / "tasks.md", "tab-tasks")
+        # Load content based on tab
+        if tab_id == "tab-spec":
+            self._load_file_to_tab(self.spec_dir / "spec.md", tab_id)
+        elif tab_id == "tab-plan":
+            self._load_file_to_tab(self.spec_dir / "plan.md", tab_id)
+        elif tab_id == "tab-tasks":
+            self._load_file_to_tab(self.spec_dir / "tasks.md", tab_id)
+        elif tab_id == "tab-research":
+            self._load_file_to_tab(self.spec_dir / "research.md", tab_id)
 
-        # Load research.md
-        self._load_file_to_tab(spec_dir / "research.md", "tab-research")
+        self.loaded_tabs.add(tab_id)
 
     def _generate_overview(self, spec, spec_dir: Path) -> str:
         """Generate overview markdown."""
