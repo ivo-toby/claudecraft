@@ -31,7 +31,7 @@ class SpecEditor(Container):
 
     def compose(self) -> ComposeResult:
         """Compose the spec editor."""
-        with TabbedContent(initial="overview"):
+        with TabbedContent(initial="tab-overview"):
             with TabPane("Overview", id="tab-overview"):
                 yield Markdown("# No specification selected\n\nSelect a spec from the left panel.")
 
