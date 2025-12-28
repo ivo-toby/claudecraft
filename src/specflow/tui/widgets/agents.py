@@ -57,6 +57,12 @@ class AgentsPanel(VerticalScroll):
         height: 12;
     }
 
+    .agent-help {
+        color: $text-muted;
+        padding: 0 1;
+        margin-bottom: 1;
+    }
+
     AgentSlot {
         height: 2;
         border: solid $primary-lighten-2;
@@ -72,6 +78,8 @@ class AgentsPanel(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         """Compose the agents panel."""
+        # Add help text
+        yield Static("Status display - shows agent execution slots (max 6)", classes="agent-help")
         # Max 6 agent slots
         for i in range(1, 7):
             yield AgentSlot(i)
