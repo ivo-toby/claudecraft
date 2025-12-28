@@ -36,6 +36,8 @@ class SpecEditor(Container):
         self.current_spec = None
         self.loaded_tabs: set[str] = set()
         self._loading_tab: str | None = None
+        self.unsaved_tabs: set[str] = set()  # Track which tabs have unsaved changes
+        self._original_content: dict[str, str] = {}  # Track original content for comparison
 
     def compose(self) -> ComposeResult:
         """Compose the spec editor."""
@@ -250,8 +252,52 @@ class SpecEditor(Container):
             # Update TextArea content - instant, no rendering needed
             editor = self.query_one(f"#{editor_id}", TextArea)
             editor.load_text(content)
+
+            # Store original content for change detection
+            self._original_content[tab_id] = content
+
+            # Mark as saved
+            if tab_id in self.unsaved_tabs:
+                self.unsaved_tabs.remove(tab_id)
         except Exception:
             pass  # Tab not found or other error
+
+    def on_text_area_changed(self, event: TextArea.Changed) -> None:
+        """Track changes in text areas."""
+        # Map editor IDs back to tab IDs
+        tab_map = {
+            "editor-spec": "tab-spec",
+            "editor-plan": "tab-plan",
+            "editor-tasks": "tab-tasks",
+            "editor-research": "tab-research",
+        }
+
+        tab_id = tab_map.get(event.text_area.id)
+        if not tab_id:
+            return  # Overview is read-only
+
+        # Check if content differs from original
+        current_content = event.text_area.text
+        original_content = self._original_content.get(tab_id, "")
+
+        if current_content != original_content:
+            self.unsaved_tabs.add(tab_id)
+            # Update app subtitle to show unsaved indicator
+            try:
+                if hasattr(self.app, 'sub_title') and not self.app.sub_title.endswith(" *"):
+                    self.app.sub_title = f"{self.app.sub_title} *"
+            except Exception:
+                pass
+        else:
+            if tab_id in self.unsaved_tabs:
+                self.unsaved_tabs.remove(tab_id)
+                # Clear unsaved indicator if no tabs have changes
+                if not self.unsaved_tabs:
+                    try:
+                        if hasattr(self.app, 'sub_title') and self.app.sub_title.endswith(" *"):
+                            self.app.sub_title = self.app.sub_title[:-2]
+                    except Exception:
+                        pass
 
     def save_current_tab(self) -> bool:
         """Save the currently active tab content to disk."""
@@ -292,12 +338,22 @@ class SpecEditor(Container):
             file_path = self.spec_dir / filename
             file_path.write_text(content)
 
+            # Update original content and clear unsaved flag
+            self._original_content[active_tab] = content
+            if active_tab in self.unsaved_tabs:
+                self.unsaved_tabs.remove(active_tab)
+
             # Update app subtitle to show saved
             if hasattr(self.app, 'sub_title'):
-                original = self.app.sub_title
+                # Remove asterisk if no unsaved tabs
+                subtitle = self.app.sub_title
+                if subtitle.endswith(" *") and not self.unsaved_tabs:
+                    subtitle = subtitle[:-2]
+
                 self.app.sub_title = f"Saved {filename}"
                 # Restore after 2 seconds
-                self.set_timer(2.0, lambda: setattr(self.app, 'sub_title', original))
+                final_subtitle = subtitle if not self.unsaved_tabs else f"{subtitle}"
+                self.set_timer(2.0, lambda: setattr(self.app, 'sub_title', final_subtitle))
 
             return True
         except Exception:
