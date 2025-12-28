@@ -1,5 +1,6 @@
 """Project management for SpecFlow."""
 
+import shutil
 from pathlib import Path
 
 from specflow.core.config import Config
@@ -56,7 +57,70 @@ class Project:
         if not constitution_path.exists():
             constitution_path.write_text(_CONSTITUTION_TEMPLATE.format(project_name=project_name))
 
+        # Copy Claude templates (agents, skills, commands, hooks)
+        cls._copy_claude_templates(path)
+
         return cls(path, config, db)
+
+    @staticmethod
+    def _copy_claude_templates(target_path: Path) -> None:
+        """Copy Claude template files to the project."""
+        # Find the template directory (in the package)
+        package_dir = Path(__file__).parent.parent.parent.parent
+        template_dir = package_dir / ".claude"
+
+        if not template_dir.exists():
+            # No templates available (e.g., installed as package without source)
+            return
+
+        target_claude = target_path / ".claude"
+
+        # Copy agents
+        agents_src = template_dir / "agents"
+        if agents_src.exists():
+            for agent_file in agents_src.glob("*.md"):
+                target_file = target_claude / "agents" / agent_file.name
+                if not target_file.exists():
+                    shutil.copy2(agent_file, target_file)
+
+        # Copy skills
+        skills_src = template_dir / "skills" / "specflow"
+        if skills_src.exists():
+            target_skills = target_claude / "skills" / "specflow"
+            for skill_file in skills_src.rglob("*"):
+                if skill_file.is_file():
+                    rel_path = skill_file.relative_to(skills_src)
+                    target_file = target_skills / rel_path
+                    target_file.parent.mkdir(parents=True, exist_ok=True)
+                    if not target_file.exists():
+                        shutil.copy2(skill_file, target_file)
+
+        # Copy commands
+        commands_src = template_dir / "commands"
+        if commands_src.exists():
+            for cmd_file in commands_src.glob("*.md"):
+                target_file = target_claude / "commands" / cmd_file.name
+                if not target_file.exists():
+                    shutil.copy2(cmd_file, target_file)
+
+        # Copy hooks
+        hooks_src = template_dir / "hooks"
+        if hooks_src.exists():
+            # Copy hooks.json or hooks.yaml
+            for hooks_file in hooks_src.glob("hooks.*"):
+                target_file = target_claude / "hooks" / hooks_file.name
+                if not target_file.exists():
+                    shutil.copy2(hooks_file, target_file)
+
+            # Copy hook scripts
+            scripts_src = hooks_src / "scripts"
+            if scripts_src.exists():
+                for script in scripts_src.glob("*.sh"):
+                    target_file = target_claude / "hooks" / "scripts" / script.name
+                    if not target_file.exists():
+                        shutil.copy2(script, target_file)
+                        # Make scripts executable
+                        target_file.chmod(0o755)
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Project":
