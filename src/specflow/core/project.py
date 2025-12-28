@@ -219,6 +219,58 @@ class Project:
 
         return imported
 
+    def scan_and_register_specs(self) -> int:
+        """Scan specs directory and register any specs not in database."""
+        from specflow.core.database import Spec, SpecStatus
+
+        specs_dir = self.root / "specs"
+        if not specs_dir.exists():
+            return 0
+
+        registered = 0
+        for spec_dir in specs_dir.iterdir():
+            if not spec_dir.is_dir():
+                continue
+
+            spec_id = spec_dir.name
+
+            # Check if already registered
+            if self.db.get_spec(spec_id):
+                continue
+
+            # Check if spec.md exists
+            spec_file = spec_dir / "spec.md"
+            if not spec_file.exists():
+                continue
+
+            # Extract title from spec.md
+            content = spec_file.read_text()
+            title_match = re.search(r'^#\s+(.+?)$', content, re.MULTILINE)
+            title = title_match.group(1).strip() if title_match else spec_id
+
+            # Determine source type
+            source_type = None
+            if (spec_dir / "brd.md").exists():
+                source_type = "brd"
+            elif (spec_dir / "prd.md").exists():
+                source_type = "prd"
+
+            # Create spec entry
+            spec = Spec(
+                id=spec_id,
+                title=title,
+                status=SpecStatus.SPECIFIED,  # Assume specified since spec.md exists
+                source_type=source_type,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                metadata={}
+            )
+
+            self.db.create_spec(spec)
+            registered += 1
+
+        return registered
+
 
 _CONSTITUTION_TEMPLATE = """# Project Constitution
 

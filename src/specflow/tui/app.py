@@ -97,7 +97,13 @@ class SpecFlowApp(App):
         if self.project_path:
             try:
                 self.project = Project.load(self.project_path / ".specflow" / "config.yaml")
-                self.sub_title = f"Project: {self.project.config.project_name}"
+
+                # Scan and register any specs on disk not in database
+                registered = self.project.scan_and_register_specs()
+                if registered > 0:
+                    self.sub_title = f"Registered {registered} specs - {self.project.config.project_name}"
+                else:
+                    self.sub_title = f"Project: {self.project.config.project_name}"
             except FileNotFoundError:
                 self.sub_title = "No project loaded - use /specflow.init"
                 return
