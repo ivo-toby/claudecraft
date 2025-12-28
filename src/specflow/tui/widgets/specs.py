@@ -57,13 +57,15 @@ class SpecsPanel(VerticalScroll):
             new_data.append((status_icon, spec.id, spec.title, tasks_str))
 
         # Check if data changed - avoid unnecessary clear/rebuild
-        current_rows = list(table.rows.values())
-        data_changed = len(current_rows) != len(new_data)
+        current_row_keys = list(table.rows.keys())
+        data_changed = len(current_row_keys) != len(new_data)
         if not data_changed:
             for i, row_data in enumerate(new_data):
-                if i < len(current_rows) and tuple(current_rows[i]) != row_data:
-                    data_changed = True
-                    break
+                if i < len(current_row_keys):
+                    current_row_data = table.get_row(current_row_keys[i])
+                    if tuple(current_row_data) != row_data:
+                        data_changed = True
+                        break
 
         # Only rebuild if data changed
         if data_changed:
