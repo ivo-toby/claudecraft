@@ -121,15 +121,28 @@ class SpecFlowApp(App):
 
     def action_focus_specs(self) -> None:
         """Focus the specs panel."""
-        self.query_one("#specs-panel").focus()
+        try:
+            self.query_one("#specs-table").focus()
+        except Exception:
+            pass
 
     def action_focus_agents(self) -> None:
         """Focus the agents panel."""
-        self.query_one("#agents-panel").focus()
+        try:
+            self.query_one("#agents-panel").focus()
+        except Exception:
+            pass
 
     def action_focus_editor(self) -> None:
         """Focus the spec editor."""
-        self.query_one("#spec-editor").focus()
+        try:
+            # Focus the TabbedContent widget in the editor
+            from textual.widgets import TabbedContent
+            editor = self.query_one("#spec-editor")
+            tabbed = editor.query_one(TabbedContent)
+            tabbed.focus()
+        except Exception:
+            pass
 
     def action_refresh(self) -> None:
         """Refresh all panels."""
@@ -138,9 +151,21 @@ class SpecFlowApp(App):
             specs_panel = self.query_one("#specs-panel", SpecsPanel)
             specs_panel.refresh_specs()
 
+            # Reload dependency graph if a spec is loaded
+            try:
+                graph = self.query_one("#dependency-graph", DependencyGraph)
+                editor = self.query_one("#spec-editor", SpecEditor)
+                if editor.current_spec_id:
+                    graph.load_spec(editor.current_spec_id)
+            except Exception:
+                pass
+
     def action_focus_graph(self) -> None:
         """Focus the dependency graph."""
-        self.query_one("#dependency-graph").focus()
+        try:
+            self.query_one("#dependency-graph").focus()
+        except Exception:
+            pass
 
     def action_new_spec(self) -> None:
         """Create a new specification."""

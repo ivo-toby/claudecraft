@@ -8,6 +8,8 @@ from textual.widgets import Static
 class DependencyGraph(VerticalScroll):
     """Widget displaying task dependency graph."""
 
+    can_focus = True
+
     CSS = """
     DependencyGraph {
         height: 100%;

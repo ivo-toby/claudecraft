@@ -11,6 +11,8 @@ from specflow.core.database import SpecStatus
 class SpecsPanel(VerticalScroll):
     """Panel displaying all specifications."""
 
+    can_focus = True
+
     def compose(self) -> ComposeResult:
         """Compose the specs panel."""
         yield DataTable(id="specs-table", cursor_type="row")

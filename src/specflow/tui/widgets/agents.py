@@ -50,6 +50,8 @@ class AgentSlot(Static):
 class AgentsPanel(VerticalScroll):
     """Panel displaying agent pool status."""
 
+    can_focus = True
+
     CSS = """
     AgentsPanel {
         height: 12;
