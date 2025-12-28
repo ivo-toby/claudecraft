@@ -82,6 +82,14 @@ class SpecEditor(Container):
                     id="editor-research"
                 )
 
+            with TabPane("Questions", id="tab-questions"):
+                yield TextArea(
+                    "No questions.md available",
+                    language="markdown",
+                    theme="monokai",
+                    id="editor-questions"
+                )
+
             with TabPane("Constitution", id="tab-constitution"):
                 yield TextArea(
                     "# Project Constitution\n\nNo constitution file found.",
@@ -180,7 +188,8 @@ class SpecEditor(Container):
             "tab-spec": "specification",
             "tab-plan": "plan",
             "tab-tasks": "tasks",
-            "tab-research": "research"
+            "tab-research": "research",
+            "tab-questions": "questions"
         }
         tab_name = tab_names.get(tab_id, "content")
 
@@ -205,6 +214,8 @@ class SpecEditor(Container):
             self._load_file_to_tab(self.spec_dir / "tasks.md", tab_id)
         elif tab_id == "tab-research":
             self._load_file_to_tab(self.spec_dir / "research.md", tab_id)
+        elif tab_id == "tab-questions":
+            self._load_file_to_tab(self.spec_dir / "questions.md", tab_id)
 
         self.loaded_tabs.add(tab_id)
         self._loading_tab = None
@@ -275,6 +286,7 @@ class SpecEditor(Container):
                 "tab-plan": "editor-plan",
                 "tab-tasks": "editor-tasks",
                 "tab-research": "editor-research",
+                "tab-questions": "editor-questions",
                 "tab-constitution": "editor-constitution",
             }
             editor_id = editor_ids.get(tab_id)
@@ -302,6 +314,7 @@ class SpecEditor(Container):
             "editor-plan": "tab-plan",
             "editor-tasks": "tab-tasks",
             "editor-research": "tab-research",
+            "editor-questions": "tab-questions",
             "editor-constitution": "tab-constitution",
         }
 
@@ -352,6 +365,7 @@ class SpecEditor(Container):
                 "tab-plan": "plan.md",
                 "tab-tasks": "tasks.md",
                 "tab-research": "research.md",
+                "tab-questions": "questions.md",
             }
             filename = file_map.get(active_tab)
             if not filename or not self.spec_dir:
@@ -363,6 +377,7 @@ class SpecEditor(Container):
                 "tab-plan": "editor-plan",
                 "tab-tasks": "editor-tasks",
                 "tab-research": "editor-research",
+                "tab-questions": "editor-questions",
             }
             editor_id = editor_ids.get(active_tab)
             if not editor_id:
