@@ -45,12 +45,13 @@ AGENT_TYPE_TO_NAME = {
 }
 
 # Tools each agent type is allowed to use
+# Task tool enables spawning subagents
 AGENT_ALLOWED_TOOLS = {
-    AgentType.ARCHITECT: "Read,Grep,Glob,WebSearch",
-    AgentType.CODER: "Read,Write,Edit,Bash,Grep,Glob",
-    AgentType.REVIEWER: "Read,Grep,Glob,Bash",
-    AgentType.TESTER: "Read,Write,Edit,Bash,Grep",
-    AgentType.QA: "Read,Bash,Grep,Glob",
+    AgentType.ARCHITECT: "Task,Read,Grep,Glob,WebSearch",
+    AgentType.CODER: "Task,Read,Write,Edit,Bash,Grep,Glob",
+    AgentType.REVIEWER: "Task,Read,Grep,Glob,Bash",
+    AgentType.TESTER: "Task,Read,Write,Edit,Bash,Grep",
+    AgentType.QA: "Task,Read,Bash,Grep,Glob",
 }
 
 
