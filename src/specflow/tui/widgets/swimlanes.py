@@ -327,47 +327,54 @@ class TaskEditModal(ModalScreen):
         align: center middle;
     }
 
-    #task-edit-container {
-        width: 80%;
-        height: 80%;
+    TaskEditModal > Container {
+        width: 90%;
+        height: 90%;
         border: thick $warning;
         background: $surface;
+        padding: 1;
     }
 
-    #task-edit-header {
+    TaskEditModal Static {
+        height: auto;
+    }
+
+    TaskEditModal #task-edit-header {
         height: 3;
         background: $warning;
         color: $text;
         padding: 1;
         text-style: bold;
+        margin-bottom: 1;
     }
 
-    #task-edit-content {
+    TaskEditModal #task-edit-content {
         height: 1fr;
-        padding: 1;
+        width: 100%;
     }
 
-    #task-edit-title {
+    TaskEditModal #task-edit-title {
         height: 5;
-        min-height: 3;
+        width: 100%;
         margin-bottom: 1;
         border: solid $primary;
     }
 
-    #task-edit-description {
-        height: 100%;
-        min-height: 15;
+    TaskEditModal #task-edit-description {
+        height: 20;
+        width: 100%;
         border: solid $primary;
     }
 
-    #task-edit-buttons {
-        height: 5;
+    TaskEditModal #task-edit-buttons {
+        height: 3;
+        width: 100%;
         align: center middle;
-        padding: 1;
+        margin-top: 1;
     }
 
-    #task-edit-buttons Button {
-        margin: 0 1;
+    TaskEditModal #task-edit-buttons Button {
+        margin: 0 2;
     }
     """
 
@@ -381,26 +388,23 @@ class TaskEditModal(ModalScreen):
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        with Container(id="task-edit-container"):
+        with Container():
             yield Static(
                 f"Edit Task: {self._task_data.id}",
                 id="task-edit-header"
             )
-
-            with VerticalScroll(id="task-edit-content"):
-                yield Static("[b]Title[/b]")
-                yield TextArea(
-                    self._task_data.title,
-                    id="task-edit-title",
-                    show_line_numbers=False
-                )
-                yield Static("[b]Description[/b]")
-                yield TextArea(
-                    self._task_data.description or "",
-                    id="task-edit-description",
-                    show_line_numbers=False
-                )
-
+            yield Static("[b]Title[/b]")
+            yield TextArea(
+                self._task_data.title,
+                id="task-edit-title",
+                show_line_numbers=False
+            )
+            yield Static("[b]Description[/b]")
+            yield TextArea(
+                self._task_data.description or "",
+                id="task-edit-description",
+                show_line_numbers=False
+            )
             with Horizontal(id="task-edit-buttons"):
                 yield Button("Save", variant="success", id="btn-save-edit")
                 yield Button("Cancel", variant="error", id="btn-cancel-edit")
