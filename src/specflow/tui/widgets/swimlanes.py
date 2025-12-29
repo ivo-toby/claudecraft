@@ -57,29 +57,29 @@ class TaskCard(Static):
     class Selected(Message):
         """Posted when a task card is selected."""
 
-        def __init__(self, task: Task) -> None:
-            self.task = task
+        def __init__(self, task_data: Task) -> None:
+            self.task_data = task_data
             super().__init__()
 
-    def __init__(self, task: Task, is_blocked: bool = False) -> None:
-        self.task = task
-        self.is_blocked = is_blocked
+    def __init__(self, task_data: Task, is_blocked: bool = False) -> None:
+        self._task_data = task_data
+        self._is_blocked = is_blocked
         super().__init__()
         if is_blocked:
             self.add_class("blocked")
 
     def compose(self) -> ComposeResult:
         priority_icons = {1: "[P1]", 2: "[P2]", 3: "[P3]"}
-        priority = priority_icons.get(self.task.priority, "")
-        blocked_icon = " [blocked]" if self.is_blocked else ""
+        priority = priority_icons.get(self._task_data.priority, "")
+        blocked_icon = " [blocked]" if self._is_blocked else ""
 
-        yield Static(f"[b]{self.task.id}[/b]", classes="task-id")
-        yield Static(self.task.title[:30], classes="task-title")
+        yield Static(f"[b]{self._task_data.id}[/b]", classes="task-id")
+        yield Static(self._task_data.title[:30], classes="task-title")
         yield Static(f"{priority}{blocked_icon}", classes="task-meta")
 
     def on_click(self) -> None:
         """Handle click on task card."""
-        self.post_message(self.Selected(self.task))
+        self.post_message(self.Selected(self._task_data))
 
 
 class SwimLane(Vertical):
@@ -194,38 +194,38 @@ class TaskDetailModal(ModalScreen):
         Binding("escape", "dismiss", "Close"),
     ]
 
-    def __init__(self, task: Task, execution_logs: list = None) -> None:
-        self.task = task
-        self.execution_logs = execution_logs or []
+    def __init__(self, task_data: Task, execution_logs: list = None) -> None:
+        self._task_data = task_data
+        self._execution_logs = execution_logs or []
         super().__init__()
 
     def compose(self) -> ComposeResult:
         with Container(id="task-detail-container"):
             yield Static(
-                f"Task: {self.task.id} - {self.task.title}",
+                f"Task: {self._task_data.id} - {self._task_data.title}",
                 id="task-detail-header"
             )
 
             with VerticalScroll(id="task-detail-content"):
                 # Description
                 yield Static("[b]Description[/b]")
-                desc = self.task.description or "(No description)"
+                desc = self._task_data.description or "(No description)"
                 yield TextArea(desc, read_only=True, id="task-detail-description")
 
                 # Metadata
                 with Container(id="task-detail-meta"):
-                    yield Static(f"[b]Status:[/b] {self.task.status.value}")
-                    yield Static(f"[b]Priority:[/b] P{self.task.priority}")
-                    deps = ", ".join(self.task.dependencies) or "None"
+                    yield Static(f"[b]Status:[/b] {self._task_data.status.value}")
+                    yield Static(f"[b]Priority:[/b] P{self._task_data.priority}")
+                    deps = ", ".join(self._task_data.dependencies) or "None"
                     yield Static(f"[b]Dependencies:[/b] {deps}")
-                    yield Static(f"[b]Assignee:[/b] {self.task.assignee or 'Unassigned'}")
-                    yield Static(f"[b]Created:[/b] {self.task.created_at}")
-                    yield Static(f"[b]Updated:[/b] {self.task.updated_at}")
+                    yield Static(f"[b]Assignee:[/b] {self._task_data.assignee or 'Unassigned'}")
+                    yield Static(f"[b]Created:[/b] {self._task_data.created_at}")
+                    yield Static(f"[b]Updated:[/b] {self._task_data.updated_at}")
 
                 # Execution logs
-                if self.execution_logs:
+                if self._execution_logs:
                     yield Static("[b]Execution History[/b]")
-                    for log in self.execution_logs[-10:]:  # Last 10 entries
+                    for log in self._execution_logs[-10:]:  # Last 10 entries
                         status = "[green]OK[/green]" if log.success else "[red]FAIL[/red]"
                         yield Static(
                             f"  {log.created_at}: {log.agent_type} - {log.action} {status}"
@@ -307,10 +307,10 @@ class SwimlaneBoard(Container):
     @on(TaskCard.Selected)
     def on_task_selected(self, event: TaskCard.Selected) -> None:
         """Handle task card selection - show detail modal."""
-        task = event.task
+        task_data = event.task_data
         db = self.app.project.db
-        logs = db.get_execution_logs(task.id)
-        self.app.push_screen(TaskDetailModal(task, logs))
+        logs = db.get_execution_logs(task_data.id)
+        self.app.push_screen(TaskDetailModal(task_data, logs))
 
 
 class SwimlaneScreen(Screen):
