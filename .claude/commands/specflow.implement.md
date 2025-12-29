@@ -38,16 +38,9 @@ This is NOT optional. The TUI relies on this for real-time status.
 
 ## Execution Flow
 
-1. **Load Tasks from Database**
-   ```python
-   from specflow.core.project import Project
-   from specflow.core.database import TaskStatus
-
-   project = Project.load()
-   db = project.db
-
-   # Get tasks ready to implement
-   ready_tasks = db.get_ready_tasks(spec_id="<spec-id>")
+1. **List Ready Tasks**
+   ```bash
+   specflow list-tasks --spec {spec-id} --status todo
    ```
 
 2. **For Each Task:**
@@ -55,9 +48,7 @@ This is NOT optional. The TUI relies on this for real-time status.
    ### CODER PHASE
    ```bash
    specflow agent-start {task-id} --type coder
-   ```
-   ```python
-   db.update_task_status(task.id, TaskStatus.IMPLEMENTING)
+   specflow task-update {task-id} implementing
    ```
    - Create worktree: `.worktrees/{task-id}`
    - Execute with @specflow-coder
@@ -69,9 +60,7 @@ This is NOT optional. The TUI relies on this for real-time status.
    ### TESTER PHASE
    ```bash
    specflow agent-start {task-id} --type tester
-   ```
-   ```python
-   db.update_task_status(task.id, TaskStatus.TESTING)
+   specflow task-update {task-id} testing
    ```
    - Execute with @specflow-tester
    - Write and run tests
@@ -82,9 +71,7 @@ This is NOT optional. The TUI relies on this for real-time status.
    ### REVIEWER PHASE
    ```bash
    specflow agent-start {task-id} --type reviewer
-   ```
-   ```python
-   db.update_task_status(task.id, TaskStatus.REVIEWING)
+   specflow task-update {task-id} reviewing
    ```
    - Execute with @specflow-reviewer
    - Review code quality
@@ -100,24 +87,12 @@ This is NOT optional. The TUI relies on this for real-time status.
    - Final validation (max 10 iterations)
    ```bash
    specflow agent-stop --task {task-id}
-   ```
-   ```python
-   db.update_task_status(task.id, TaskStatus.DONE)
+   specflow task-update {task-id} done
    ```
 
-3. **Check for Unblocked Tasks**
-   - Query `db.get_ready_tasks()` for newly available tasks
-
-4. **Log Execution**
-   ```python
-   db.log_execution(
-       task_id=task.id,
-       agent_type="coder",  # or reviewer, tester, qa
-       action="implement",
-       output="<summary of work done>",
-       success=True,
-       duration_ms=elapsed_ms
-   )
+3. **Check for Newly Unblocked Tasks**
+   ```bash
+   specflow list-tasks --spec {spec-id} --status todo
    ```
 
 5. **When All Tasks Complete:**

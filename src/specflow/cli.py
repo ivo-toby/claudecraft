@@ -66,6 +66,17 @@ def main() -> int:
         help="Filter by status",
     )
 
+    # task-update command
+    task_update_parser = subparsers.add_parser(
+        "task-update", help="Update a task's status"
+    )
+    task_update_parser.add_argument("task_id", help="Task ID to update")
+    task_update_parser.add_argument(
+        "status",
+        choices=["todo", "implementing", "testing", "reviewing", "done"],
+        help="New status",
+    )
+
     # execute command
     execute_parser = subparsers.add_parser("execute", help="Execute tasks (headless mode)")
     execute_parser.add_argument(
@@ -132,6 +143,8 @@ def main() -> int:
         return cmd_list_specs(args.status, args.json)
     elif args.command == "list-tasks":
         return cmd_list_tasks(args.spec, args.status, args.json)
+    elif args.command == "task-update":
+        return cmd_task_update(args.task_id, args.status, args.json)
     elif args.command == "execute":
         return cmd_execute(args.spec, args.task, args.max_parallel, args.json)
     elif args.command == "tui":
@@ -324,6 +337,44 @@ def cmd_list_tasks(
                         print(f"  Dependencies: {', '.join(task.dependencies)}")
                     print()
 
+        return 0
+    except FileNotFoundError:
+        if json_output:
+            result = {"success": False, "error": "Not a SpecFlow project"}
+            print(json.dumps(result, indent=2))
+        else:
+            print("Not a SpecFlow project (no .specflow directory found)", file=sys.stderr)
+        return 1
+    except Exception as e:
+        if json_output:
+            result = {"success": False, "error": str(e)}
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_task_update(task_id: str, status: str, json_output: bool = False) -> int:
+    """Update a task's status."""
+    try:
+        project = Project.load()
+
+        # Convert status string to TaskStatus enum
+        status_enum = TaskStatus(status)
+
+        # Update the task
+        task = project.db.update_task_status(task_id, status_enum)
+
+        if json_output:
+            result = {
+                "success": True,
+                "task_id": task_id,
+                "status": status,
+                "task": task.to_dict(),
+            }
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"Task {task_id} updated to {status}")
         return 0
     except FileNotFoundError:
         if json_output:
