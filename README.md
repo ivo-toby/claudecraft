@@ -226,6 +226,140 @@ specflow merge-task <task-id> [--target main] [--cleanup]
 specflow execute [--spec ID] [--task ID] [--max-parallel 6] [--json]
 ```
 
+The `execute` command runs the full agent pipeline autonomously:
+
+1. **Task Selection** — Finds tasks ready to execute (dependencies satisfied)
+2. **Worktree Creation** — Creates isolated git worktree for each task
+3. **Pipeline Execution** — Runs each task through: Coder → Reviewer → Tester → QA
+4. **Claude Code Integration** — Spawns real Claude Code agents in headless mode
+5. **Status Tracking** — Updates database in real-time (visible in TUI)
+
+**Examples:**
+
+```bash
+# Execute all ready tasks across all specs
+specflow execute
+
+# Execute tasks for a specific spec
+specflow execute --spec todo-app-20251228
+
+# Execute a single task
+specflow execute --task TASK-001
+
+# Run with max 3 parallel agents
+specflow execute --max-parallel 3
+
+# Get JSON output for CI/CD pipelines
+specflow execute --spec my-feature --json
+```
+
+**Pipeline Stages:**
+
+Each task passes through 4 agent stages with automatic retry:
+
+| Stage | Agent | Max Retries | Purpose |
+|-------|-------|-------------|---------|
+| Implementation | Coder | 3 | Write code, commit changes |
+| Code Review | Reviewer | 2 | Check quality, find bugs |
+| Testing | Tester | 2 | Write and run tests |
+| QA Validation | QA | 10 | Final acceptance check |
+
+If a stage fails after max retries, the task resets to `todo` status with failure metadata.
+
+## Examples
+
+### Example 1: Building a Todo App
+
+```bash
+# 1. Initialize SpecFlow in your project
+cd my-todo-app
+specflow init
+
+# 2. Create a BRD (in Claude Code)
+/specflow.brd
+# Answer questions about your business requirements
+
+# 3. Create a PRD from the BRD
+/specflow.prd
+# Refine into product requirements
+
+# 4. Generate technical specification
+/specflow.specify todo-app-20251228
+# AI generates spec.md with your approval
+
+# 5. Create implementation tasks
+/specflow.tasks todo-app-20251228
+# Creates tasks with dependencies
+
+# 6. Launch TUI to monitor
+specflow tui
+# Press 't' for swimlane view
+
+# 7. Execute autonomous implementation
+/specflow.implement todo-app-20251228
+# Watch agents work in real-time!
+```
+
+### Example 2: Headless CI/CD Pipeline
+
+```bash
+#!/bin/bash
+# ci-pipeline.sh
+
+# Execute all ready tasks with JSON output
+result=$(specflow execute --json)
+
+# Check results
+successful=$(echo "$result" | jq '.successful')
+failed=$(echo "$result" | jq '.failed')
+
+if [ "$failed" -gt 0 ]; then
+    echo "❌ $failed tasks failed"
+    exit 1
+fi
+
+echo "✅ $successful tasks completed successfully"
+```
+
+### Example 3: Manual Task Management
+
+```bash
+# Create a spec manually
+specflow spec-create auth-feature --title "User Authentication"
+
+# Add tasks with dependencies
+specflow task-create TASK-001 auth-feature "Setup database schema" --priority 1
+specflow task-create TASK-002 auth-feature "Implement login endpoint" --priority 2 --dependencies TASK-001
+specflow task-create TASK-003 auth-feature "Add session management" --priority 2 --dependencies TASK-001
+specflow task-create TASK-004 auth-feature "Integration tests" --priority 3 --dependencies TASK-002,TASK-003
+
+# Check task status
+specflow list-tasks --spec auth-feature
+
+# Execute a specific task
+specflow execute --task TASK-001
+```
+
+### Example 4: Working with Worktrees
+
+```bash
+# Create a worktree for manual work
+specflow worktree-create TASK-001
+
+# Work in the worktree
+cd .worktrees/TASK-001
+# ... make changes ...
+
+# Commit changes
+specflow worktree-commit TASK-001 "Implement database schema"
+
+# Merge back to main
+specflow merge-task TASK-001 --cleanup
+
+# List all active worktrees
+specflow worktree-list --json
+```
+
 ## Architecture
 
 ### Workflow
