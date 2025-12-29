@@ -16,40 +16,10 @@ $ARGUMENTS - Path to BRD or PRD markdown file
 3. Copy source document as brd.md or prd.md
 4. Extract key requirements and user stories
 5. Register spec in database:
-   ```python
-   from specflow.core.project import Project
-   from specflow.core.database import Spec, SpecStatus
-   from datetime import datetime
-   import re
-
-   project = Project.load()
-   spec_id = "{generated-id}"  # Use actual generated ID
-
-   # Extract title from BRD/PRD
-   spec_dir = project.spec_dir(spec_id)
-   brd_file = spec_dir / "brd.md"
-   prd_file = spec_dir / "prd.md"
-   source_file = brd_file if brd_file.exists() else prd_file
-   source_type = "brd" if brd_file.exists() else "prd"
-
-   title = spec_id
-   if source_file.exists():
-       content = source_file.read_text()
-       match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
-       if match:
-           title = match.group(1).strip()
-
-   # Create spec entry
-   spec = Spec(
-       id=spec_id,
-       title=title,
-       status=SpecStatus.DRAFT,
-       source_type=source_type,
-       created_at=datetime.now(),
-       updated_at=datetime.now(),
-       metadata={}
-   )
-   project.db.create_spec(spec)
+   ```bash
+   # Create spec with extracted title (from first # heading in document)
+   # source-type is "brd" or "prd" based on document content
+   specflow spec-create {generated-id} --title "Extracted Title" --source-type brd --status draft
    ```
 
 6. Generate clarifying questions using SpecKit

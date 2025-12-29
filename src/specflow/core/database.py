@@ -747,6 +747,9 @@ class Database:
     def cleanup_stale_agents(self) -> int:
         """Remove agents whose processes are no longer running.
 
+        Only checks agents that have a PID registered. Agents registered
+        via CLI (without PID) must be manually deregistered via agent-stop.
+
         Returns:
             Number of stale agents cleaned up
         """
@@ -755,7 +758,8 @@ class Database:
         agents = self.list_active_agents()
         cleaned = 0
         for agent in agents:
-            if agent.pid:
+            # Only check agents with a PID - CLI-registered agents have no PID
+            if agent.pid is not None:
                 try:
                     # Check if process exists (sends signal 0)
                     os.kill(agent.pid, 0)

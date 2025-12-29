@@ -24,21 +24,13 @@ If you have a BRD, I can use it as the foundation for the PRD.
 ### If "From existing BRD":
 
 1. List available BRDs that don't have PRDs yet:
-   ```python
-   from specflow.core.project import Project
-   from pathlib import Path
+   ```bash
+   # List all specs
+   specflow list-specs --json
 
-   project = Project.load()
-   specs = project.db.list_specs()
-
-   # Find specs with BRD but no PRD
-   available = []
-   for spec in specs:
-       spec_dir = project.spec_dir(spec.id)
-       has_brd = (spec_dir / "brd.md").exists()
-       has_prd = (spec_dir / "prd.md").exists()
-       if has_brd and not has_prd:
-           available.append(spec)
+   # Then for each spec, check the specs/{spec-id}/ directory for:
+   # - brd.md exists
+   # - prd.md does not exist
    ```
 
 2. Present options:
@@ -280,42 +272,21 @@ After user approves the PRD content:
 
 1. If from existing BRD, use the same spec directory
 2. If new, generate a spec ID and create directory:
-   ```python
-   from specflow.core.project import Project
-   from specflow.core.database import Spec, SpecStatus
-   from datetime import datetime
+   ```bash
+   # Check if spec exists
+   specflow spec-get {spec-id} --json
 
-   project = Project.load()
-   spec_id = "{existing or generated id}"
+   # If exists, update it
+   specflow spec-update {spec-id} --status draft
 
-   spec_dir = project.spec_dir(spec_id)
-
-   # Save PRD
-   prd_path = spec_dir / "prd.md"
-   prd_path.write_text(prd_content)
-
-   # Update or create spec in database
-   existing = project.db.get_spec(spec_id)
-   if existing:
-       existing.status = SpecStatus.DRAFT
-       existing.updated_at = datetime.now()
-       existing.metadata["phase"] = "prd"
-       project.db.update_spec(existing)
-   else:
-       spec = Spec(
-           id=spec_id,
-           title="{extracted title}",
-           status=SpecStatus.DRAFT,
-           source_type="prd",
-           created_at=datetime.now(),
-           updated_at=datetime.now(),
-           metadata={"phase": "prd"}
-       )
-       project.db.create_spec(spec)
+   # If not exists, create it
+   specflow spec-create {spec-id} --title "PRD Title" --source-type prd --status draft
    ```
 
-3. Inform user: "PRD saved to specs/{spec-id}/prd.md"
-4. Suggest next step: "Run /specflow.specify to create the technical specification"
+3. Save the PRD content to `specs/{spec-id}/prd.md` (use Write tool)
+
+4. Inform user: "PRD saved to specs/{spec-id}/prd.md"
+5. Suggest next step: "Run /specflow.specify to create the technical specification"
 
 ## Guidelines
 

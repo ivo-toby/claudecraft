@@ -29,37 +29,12 @@ $ARGUMENTS - Spec ID to generate specification for
    - Flag any concerns
 
 5. Register spec in database:
-   ```python
-   from specflow.core.project import Project
-   from specflow.core.database import Spec, SpecStatus
-   from datetime import datetime
-   import re
+   ```bash
+   # Check if spec exists
+   specflow spec-get {spec-id} --json
 
-   project = Project.load()
-   spec_id = "{spec-id}"  # Use actual spec ID
-   spec_dir = project.spec_dir(spec_id)
-
-   # Extract title from spec.md
-   spec_file = spec_dir / "spec.md"
-   title = spec_id
-   if spec_file.exists():
-       content = spec_file.read_text()
-       match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
-       if match:
-           title = match.group(1).strip()
-
-   # Check if already exists
-   if not project.db.get_spec(spec_id):
-       spec = Spec(
-           id=spec_id,
-           title=title,
-           status=SpecStatus.DRAFT,  # Will be APPROVED after human gate
-           source_type="brd",
-           created_at=datetime.now(),
-           updated_at=datetime.now(),
-           metadata={}
-       )
-       project.db.create_spec(spec)
+   # If not exists, create it (extract title from spec.md first line)
+   specflow spec-create {spec-id} --title "Extracted Title" --source-type brd --status draft
    ```
 
 6. Present for human approval:
@@ -68,15 +43,8 @@ $ARGUMENTS - Spec ID to generate specification for
    - Request explicit approval
 
 7. Update spec status to APPROVED after human approval:
-   ```python
-   from specflow.core.project import Project
-   from specflow.core.database import SpecStatus
-
-   project = Project.load()
-   spec = project.db.get_spec(spec_id)
-   if spec:
-       spec.status = SpecStatus.APPROVED
-       project.db.update_spec(spec)
+   ```bash
+   specflow spec-update {spec-id} --status approved
    ```
 
 ## HUMAN GATE

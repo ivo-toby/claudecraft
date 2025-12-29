@@ -38,39 +38,34 @@ This enables real-time tracking in the TUI swimlane board.
    - Estimate complexity
 
 4. **Create Tasks in Database**
-   - Use the specflow Python API to create tasks:
+   - Use the specflow CLI to create tasks:
 
-   ```python
-   from specflow.core.project import Project
-   from specflow.core.database import TaskStatus
-   from datetime import datetime
-
-   project = Project.load()
-   db = project.db
-
+   ```bash
    # Create each task
-   from specflow.core.database import Task
+   specflow task-create TASK-001 {spec-id} "Setup database schema" \
+       --description "Create SQLite schema for user management" \
+       --priority 1 \
+       --assignee coder
 
-   task = Task(
-       id="TASK-001",
-       spec_id="<spec-id>",
-       title="Setup database schema",
-       description="Create SQLite schema for user management",
-       status=TaskStatus.TODO,
-       priority=1,  # 1=high, 2=medium, 3=low
-       dependencies=[],  # List of task IDs this depends on
-       assignee="coder",  # coder, reviewer, tester, qa
-       worktree=None,
-       iteration=0,
-       created_at=datetime.now(),
-       updated_at=datetime.now(),
-       metadata={}
-   )
-   db.create_task(task)
+   # Create task with dependencies
+   specflow task-create TASK-002 {spec-id} "Implement user model" \
+       --description "Create user model and repository" \
+       --priority 1 \
+       --dependencies "TASK-001" \
+       --assignee coder
+
+   # Create task depending on multiple tasks
+   specflow task-create TASK-003 {spec-id} "Add user API endpoints" \
+       --priority 2 \
+       --dependencies "TASK-001,TASK-002" \
+       --assignee coder
    ```
 
 5. **Update Spec Status**
    - Set status to: approved (ready for implementation)
+   ```bash
+   specflow spec-update {spec-id} --status approved
+   ```
 
 ## Task Status Workflow
 

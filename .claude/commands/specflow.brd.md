@@ -149,37 +149,15 @@ Once sufficient information is gathered, generate the BRD:
 After user approves the BRD content:
 
 1. Generate a spec ID based on the project name (kebab-case, e.g., `user-authentication`)
-2. Create the directory and save:
-   ```python
-   from specflow.core.project import Project
-   from specflow.core.database import Spec, SpecStatus
-   from datetime import datetime
-
-   project = Project.load()
-   spec_id = "{generated-id}"
-
-   # Create spec directory
-   spec_dir = project.spec_dir(spec_id)
-
-   # Save BRD
-   brd_path = spec_dir / "brd.md"
-   brd_path.write_text(brd_content)
-
-   # Register in database
-   spec = Spec(
-       id=spec_id,
-       title="{extracted title}",
-       status=SpecStatus.DRAFT,
-       source_type="brd",
-       created_at=datetime.now(),
-       updated_at=datetime.now(),
-       metadata={"phase": "brd"}
-   )
-   project.db.create_spec(spec)
+2. Create the spec in database:
+   ```bash
+   specflow spec-create {generated-id} --title "BRD Title" --source-type brd --status draft
    ```
 
-3. Inform user: "BRD saved to specs/{spec-id}/brd.md"
-4. Suggest next step: "Run /specflow.prd to create the Product Requirements Document"
+3. Save the BRD content to `specs/{spec-id}/brd.md` (use Write tool)
+
+4. Inform user: "BRD saved to specs/{spec-id}/brd.md"
+5. Suggest next step: "Run /specflow.prd to create the Product Requirements Document"
 
 ## Guidelines
 
