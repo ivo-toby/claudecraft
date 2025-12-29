@@ -36,6 +36,11 @@ def main() -> int:
         default=Path.cwd(),
         help="Project directory (default: current directory)",
     )
+    init_parser.add_argument(
+        "--update",
+        action="store_true",
+        help="Update existing Claude templates (skills, hooks, commands, agents)",
+    )
 
     # status command
     subparsers.add_parser("status", help="Show project status")
@@ -89,7 +94,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "init":
-        return cmd_init(args.path, args.json)
+        return cmd_init(args.path, args.update, args.json)
     elif args.command == "status":
         return cmd_status(args.json)
     elif args.command == "list-specs":
@@ -105,19 +110,23 @@ def main() -> int:
         return cmd_tui(Path.cwd())
 
 
-def cmd_init(path: Path, json_output: bool = False) -> int:
+def cmd_init(path: Path, update: bool = False, json_output: bool = False) -> int:
     """Initialize a new SpecFlow project."""
     try:
-        project = Project.init(path)
+        project = Project.init(path, update_templates=update)
         if json_output:
             result = {
                 "success": True,
                 "project_root": str(project.root),
                 "config_dir": str(project.config_dir),
+                "templates_updated": update,
             }
             print(json.dumps(result, indent=2))
         else:
-            print(f"Initialized SpecFlow project at {project.root}")
+            if update:
+                print(f"Updated SpecFlow templates at {project.root}")
+            else:
+                print(f"Initialized SpecFlow project at {project.root}")
         return 0
     except Exception as e:
         if json_output:

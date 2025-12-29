@@ -1,0 +1,28 @@
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": {
+        "tool": "Write|Edit|MultiEdit",
+        "conditions": []
+      },
+      "command": "bash .claude/hooks/scripts/check-worktree.sh",
+      "description": "Ensure writes only happen in worktrees, not main branch"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": {
+        "tool": "Write|Edit|MultiEdit",
+        "conditions": []
+      },
+      "command": "bash .claude/hooks/scripts/lint-changes.sh",
+      "description": "Auto-lint after file changes"
+    },
+    {
+      "event": "PreCommit",
+      "matcher": {},
+      "command": "bash .claude/hooks/scripts/run-tests.sh",
+      "description": "Run tests before any commit"
+    }
+  ]
+}

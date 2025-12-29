@@ -21,8 +21,13 @@ class Project:
         self.sync = JsonlSync(db, root / ".specflow" / "specs.jsonl")
 
     @classmethod
-    def init(cls, path: Path) -> "Project":
-        """Initialize a new SpecFlow project at the given path."""
+    def init(cls, path: Path, update_templates: bool = False) -> "Project":
+        """Initialize a new SpecFlow project at the given path.
+
+        Args:
+            path: Project root directory
+            update_templates: If True, overwrite existing Claude templates
+        """
         path = path.resolve()
 
         # Create directory structure
@@ -60,29 +65,38 @@ class Project:
             constitution_path.write_text(_CONSTITUTION_TEMPLATE.format(project_name=project_name))
 
         # Copy Claude templates (agents, skills, commands, hooks)
-        cls._copy_claude_templates(path)
+        cls._copy_claude_templates(path, update=update_templates)
 
         return cls(path, config, db)
 
     @staticmethod
-    def _copy_claude_templates(target_path: Path) -> None:
-        """Copy Claude template files to the project."""
-        # Find the template directory (in the package)
-        package_dir = Path(__file__).parent.parent.parent.parent
-        template_dir = package_dir / ".claude"
+    def _copy_claude_templates(target_path: Path, update: bool = False) -> None:
+        """Copy Claude template files to the project.
+
+        Args:
+            target_path: Project root directory
+            update: If True, overwrite existing files
+        """
+        # Find the template directory (bundled in the package)
+        package_dir = Path(__file__).parent.parent  # src/specflow
+        template_dir = package_dir / "templates"
 
         if not template_dir.exists():
-            # No templates available (e.g., installed as package without source)
+            # No templates available
             return
 
         target_claude = target_path / ".claude"
+
+        def should_copy(target_file: Path) -> bool:
+            """Check if we should copy to target file."""
+            return update or not target_file.exists()
 
         # Copy agents
         agents_src = template_dir / "agents"
         if agents_src.exists():
             for agent_file in agents_src.glob("*.md"):
                 target_file = target_claude / "agents" / agent_file.name
-                if not target_file.exists():
+                if should_copy(target_file):
                     shutil.copy2(agent_file, target_file)
 
         # Copy skills
@@ -94,7 +108,7 @@ class Project:
                     rel_path = skill_file.relative_to(skills_src)
                     target_file = target_skills / rel_path
                     target_file.parent.mkdir(parents=True, exist_ok=True)
-                    if not target_file.exists():
+                    if should_copy(target_file):
                         shutil.copy2(skill_file, target_file)
 
         # Copy commands
@@ -102,7 +116,7 @@ class Project:
         if commands_src.exists():
             for cmd_file in commands_src.glob("*.md"):
                 target_file = target_claude / "commands" / cmd_file.name
-                if not target_file.exists():
+                if should_copy(target_file):
                     shutil.copy2(cmd_file, target_file)
 
         # Copy hooks
@@ -111,7 +125,7 @@ class Project:
             # Copy hooks.json or hooks.yaml
             for hooks_file in hooks_src.glob("hooks.*"):
                 target_file = target_claude / "hooks" / hooks_file.name
-                if not target_file.exists():
+                if should_copy(target_file):
                     shutil.copy2(hooks_file, target_file)
 
             # Copy hook scripts
@@ -119,7 +133,7 @@ class Project:
             if scripts_src.exists():
                 for script in scripts_src.glob("*.sh"):
                     target_file = target_claude / "hooks" / "scripts" / script.name
-                    if not target_file.exists():
+                    if should_copy(target_file):
                         shutil.copy2(script, target_file)
                         # Make scripts executable
                         target_file.chmod(0o755)

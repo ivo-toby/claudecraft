@@ -44,6 +44,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/specflow"]
 
+[tool.hatch.build.targets.wheel.force-include]
+".claude" = "specflow/templates"
+
+[tool.hatch.build.targets.sdist.force-include]
+".claude" = "specflow/templates"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
