@@ -34,6 +34,12 @@ You are responsible for:
 
 For each assigned task:
 
+0. **Register Agent** (REQUIRED - do this FIRST)
+   ```bash
+   specflow agent-start {task-id} --type coder
+   ```
+   This shows your status in the TUI agent panel.
+
 1. **Read and Understand**
    - Read task description thoroughly
    - Review spec.md for requirements
@@ -56,6 +62,11 @@ For each assigned task:
    - Mark task for review
    - Document what was done
    - Note any deviations from plan
+
+5. **Deregister Agent** (REQUIRED - do this LAST)
+   ```bash
+   specflow agent-stop --task {task-id}
+   ```
 
 ## Code Quality Standards
 

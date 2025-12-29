@@ -67,6 +67,12 @@ You are responsible for:
 
 ## Test Writing Process
 
+0. **Register Agent** (REQUIRED - do this FIRST)
+   ```bash
+   specflow agent-start {task-id} --type tester
+   ```
+   This shows your status in the TUI agent panel.
+
 1. **Understand Requirements**
    - Read spec.md acceptance criteria
    - Identify test scenarios
@@ -202,6 +208,11 @@ Create test report in `specs/{spec-id}/qa/tests-{task-id}.md`:
 ## Recommendations
 1. [Suggestions for improvement]
 ```
+
+5. **Deregister Agent** (REQUIRED - do this LAST)
+   ```bash
+   specflow agent-stop --task {task-id}
+   ```
 
 ## Guidelines
 

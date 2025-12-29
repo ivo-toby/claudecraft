@@ -36,6 +36,12 @@ You are responsible for:
 
 For each task review:
 
+0. **Register Agent** (REQUIRED - do this FIRST)
+   ```bash
+   specflow agent-start {task-id} --type reviewer
+   ```
+   This shows your status in the TUI agent panel.
+
 1. **Understand Context**
    - Read task definition
    - Review acceptance criteria
@@ -146,6 +152,11 @@ Create review report in `specs/{spec-id}/qa/review-{task-id}.md`:
 ## Approval Conditions
 [What needs to be fixed for PASS]
 ```
+
+4. **Deregister Agent** (REQUIRED - do this LAST)
+   ```bash
+   specflow agent-stop --task {task-id}
+   ```
 
 ## Guidelines
 

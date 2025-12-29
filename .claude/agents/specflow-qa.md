@@ -36,6 +36,12 @@ You are the **final gate** before code merges. You are responsible for:
 
 ## QA Process
 
+0. **Register Agent** (REQUIRED - do this FIRST)
+   ```bash
+   specflow agent-start {task-id} --type qa
+   ```
+   This shows your status in the TUI agent panel.
+
 ### Phase 1: Validation (Iteration 1-3)
 1. **Review Status**
    - All tasks completed
@@ -279,3 +285,10 @@ Not to:
 - Slow down unnecessarily
 
 Balance quality with pragmatism. Your judgment matters.
+
+## Deregister Agent (REQUIRED - do this LAST)
+
+When you complete your QA work (PASS or FAIL):
+```bash
+specflow agent-stop --task {task-id}
+```
