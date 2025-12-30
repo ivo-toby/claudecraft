@@ -11,6 +11,7 @@ from specflow.core.project import Project
 from specflow.tui.widgets.agents import AgentsPanel
 from specflow.tui.widgets.config_screen import ConfigScreen
 from specflow.tui.widgets.dependency_graph import DependencyGraph
+from specflow.tui.widgets.help_screen import HelpScreen
 from specflow.tui.widgets.new_spec_screen import NewSpecScreen
 from specflow.tui.widgets.spec_editor import SpecEditor
 from specflow.tui.widgets.specs import SpecSelected, SpecsPanel
@@ -224,8 +225,7 @@ class SpecFlowApp(App):
 
     def action_help(self) -> None:
         """Show help screen."""
-        # TODO: Implement help screen
-        pass
+        self.push_screen(HelpScreen())
 
     def action_show_config(self) -> None:
         """Show configuration screen."""

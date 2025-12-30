@@ -73,27 +73,22 @@ This document tracks all placeholders, TODOs, and incomplete implementations in 
 
 ---
 
-### 4. TUI Help Screen
+### ~~4. TUI Help Screen~~ COMPLETED
 
-**File:** `src/specflow/tui/app.py:206-209`
-**Status:** Not Started
-**Description:** The "Help" action (`?` keybind) does nothing.
+**File:** `src/specflow/tui/widgets/help_screen.py`
+**Status:** Completed
+**Description:** Help screen with keyboard shortcuts and quick start guide.
 
-**Current behavior:**
-- `pass` statement, no action
+**Implementation:**
+- Created `HelpScreen` modal with scrollable Markdown content
+- Keyboard shortcuts reference (navigation + actions)
+- Quick start guide (5-step workflow)
+- Workflow overview diagram
+- Agent types reference
+- CLI commands quick reference
+- Link to GitHub documentation
 
-**Needed:**
-- Create help screen/modal with:
-  - Keyboard shortcuts reference
-  - Quick start guide
-  - Link to documentation
-
-```python
-def action_help(self) -> None:
-    """Show help screen."""
-    # TODO: Implement help screen
-    pass
-```
+**Keybinding:** `?` to open help screen
 
 ---
 
@@ -309,6 +304,7 @@ These were previously placeholders but are now implemented:
 - [x] AI Conflict Resolution (Tier 2 Merge) - Claude resolves git conflicts
 - [x] AI File Regeneration (Tier 3 Merge) - Claude merges complete file versions
 - [x] TUI New Spec Dialog - Modal for creating specs with Ctrl+N
+- [x] TUI Help Screen - Keyboard shortcuts and quick start guide with ?
 
 ---
 
