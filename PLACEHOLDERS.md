@@ -31,24 +31,27 @@ This document tracks all placeholders, TODOs, and incomplete implementations in 
 
 ---
 
-### 2. AI File Regeneration (Tier 3 Merge)
+### ~~2. AI File Regeneration (Tier 3 Merge)~~ COMPLETED
 
-**File:** `src/specflow/orchestration/merge.py:257-270`
-**Status:** Not Started
-**Description:** The `FullFileAIMerge` class is completely unimplemented.
+**File:** `src/specflow/orchestration/merge.py:257-512`
+**Status:** Completed
+**Description:** The `FullFileAIMerge` class now regenerates conflicted files using Claude Code.
 
-**Current behavior:**
-- Returns "AI file regeneration not yet implemented"
+**Implementation:**
+- Gets BOTH complete versions of each conflicted file using `git show branch:path`
+- Sends both versions to Claude (no conflict markers)
+- Claude intelligently merges both versions into a coherent file
+- Handles edge cases (file exists in only one branch)
+- Writes merged content and stages for commit
 
-**Needed:**
-- Get both versions of conflicted files (source and target)
-- Provide both versions to Claude Code
-- Generate merged version that incorporates changes from both
-- Replace files and commit
+**Key difference from Tier 2:**
+- Tier 2 works with conflict markers in a single file
+- Tier 3 works with two separate complete file versions
 
-```python
-# Returns: "AI file regeneration not yet implemented"
-```
+**Key methods:**
+- `_get_file_from_branch()`: Gets file content from a specific branch
+- `_regenerate_file()`: Regenerates a single file using AI
+- `_run_claude_regeneration()`: Runs Claude Code in headless mode
 
 ---
 
@@ -310,6 +313,7 @@ These were previously placeholders but are now implemented:
 - [x] Subagent spawning (Task tool in allowedTools)
 - [x] BRD/PRD tabs in spec editor
 - [x] AI Conflict Resolution (Tier 2 Merge) - Claude resolves git conflicts
+- [x] AI File Regeneration (Tier 3 Merge) - Claude merges complete file versions
 
 ---
 

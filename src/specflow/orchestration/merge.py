@@ -257,17 +257,259 @@ OUTPUT the resolved file content below (no markdown code blocks, no explanations
 class FullFileAIMerge(MergeStrategy):
     """Tier 3: AI regenerates entire conflicted files."""
 
-    def merge(self, repo: Repo, source_branch: str, target_branch: str) -> tuple[bool, str]:
-        """Use AI to regenerate conflicted files from scratch."""
-        # Placeholder implementation
-        # In real implementation:
-        # 1. Get list of all changed files
-        # 2. For each conflicted file, provide both versions to AI
-        # 3. Ask AI to generate a merged version
-        # 4. Replace file with AI-generated version
-        # 5. Commit the merge
+    def __init__(self, claude_path: str = "claude", timeout: int = 300):
+        """Initialize with Claude Code configuration.
 
-        return False, "AI file regeneration not yet implemented"
+        Args:
+            claude_path: Path to claude CLI (default: "claude")
+            timeout: Timeout in seconds for AI regeneration (default: 300)
+        """
+        self.claude_path = claude_path
+        self.timeout = timeout
+
+    def merge(self, repo: Repo, source_branch: str, target_branch: str) -> tuple[bool, str]:
+        """Use AI to regenerate conflicted files from scratch.
+
+        Unlike Tier 2, this strategy:
+        1. Gets BOTH complete versions of each conflicted file
+        2. Sends both versions to Claude (no conflict markers)
+        3. Asks Claude to intelligently merge them
+        """
+        # Checkout target branch
+        try:
+            repo.git.checkout(target_branch)
+        except Exception as e:
+            return False, f"Failed to checkout {target_branch}: {e}"
+
+        # Attempt merge (will fail with conflicts)
+        try:
+            repo.git.merge(source_branch, "--no-ff")
+            return True, "No conflicts (unexpected in tier 3)"
+        except Exception:
+            pass  # Expected to fail with conflicts
+
+        # Get list of conflicted files
+        try:
+            status = repo.git.status("--porcelain")
+            conflicted_files = []
+            for line in status.split("\n"):
+                if line.startswith("UU "):  # Both modified (conflict)
+                    conflicted_files.append(line[3:].strip())
+        except Exception as e:
+            repo.git.merge("--abort")
+            return False, f"Failed to get conflict status: {e}"
+
+        if not conflicted_files:
+            # No conflicts, complete merge
+            try:
+                repo.git.commit("-m", f"Merge {source_branch} into {target_branch}")
+                return True, "Merged successfully (no conflicts)"
+            except Exception as e:
+                repo.git.merge("--abort")
+                return False, f"Failed to commit: {e}"
+
+        # Regenerate each conflicted file using AI
+        working_dir = Path(repo.working_dir)
+        regenerated_count = 0
+        failed_files = []
+
+        for file_path in conflicted_files:
+            # Get both versions of the file
+            source_content = self._get_file_from_branch(repo, source_branch, file_path)
+            target_content = self._get_file_from_branch(repo, target_branch, file_path)
+
+            if source_content is None and target_content is None:
+                failed_files.append(f"{file_path}: Could not read from either branch")
+                continue
+
+            # Regenerate the file using AI
+            full_path = working_dir / file_path
+            success, error = self._regenerate_file(
+                full_path, file_path, source_content, target_content,
+                source_branch, target_branch
+            )
+
+            if success:
+                # Stage the regenerated file
+                try:
+                    repo.git.add(file_path)
+                    regenerated_count += 1
+                except Exception as e:
+                    failed_files.append(f"{file_path}: Failed to stage - {e}")
+            else:
+                failed_files.append(f"{file_path}: {error}")
+
+        # If any files failed to regenerate, abort
+        if failed_files:
+            try:
+                repo.git.merge("--abort")
+            except Exception:
+                pass
+            return False, f"AI regeneration failed for {len(failed_files)} file(s): {'; '.join(failed_files[:3])}"
+
+        # Complete the merge
+        try:
+            repo.git.commit("-m", f"Merge {source_branch} into {target_branch} (AI-regenerated files)")
+            return True, f"AI regenerated {regenerated_count} conflicted file(s)"
+        except Exception as e:
+            try:
+                repo.git.merge("--abort")
+            except Exception:
+                pass
+            return False, f"Failed to commit after regeneration: {e}"
+
+    def _get_file_from_branch(self, repo: Repo, branch: str, file_path: str) -> str | None:
+        """Get file content from a specific branch.
+
+        Args:
+            repo: Git repository
+            branch: Branch name
+            file_path: Path to file relative to repo root
+
+        Returns:
+            File content or None if file doesn't exist in branch
+        """
+        try:
+            return repo.git.show(f"{branch}:{file_path}")
+        except Exception:
+            return None
+
+    def _regenerate_file(
+        self,
+        full_path: Path,
+        relative_path: str,
+        source_content: str | None,
+        target_content: str | None,
+        source_branch: str,
+        target_branch: str,
+    ) -> tuple[bool, str]:
+        """Regenerate a conflicted file using AI.
+
+        Args:
+            full_path: Full path to write the file
+            relative_path: Relative path for display
+            source_content: Content from source branch (or None)
+            target_content: Content from target branch (or None)
+            source_branch: Name of source branch
+            target_branch: Name of target branch
+
+        Returns:
+            (success, error_message) tuple
+        """
+        # Handle edge cases
+        if source_content is None and target_content is not None:
+            # File only exists in target, keep target version
+            try:
+                full_path.write_text(target_content)
+                return True, ""
+            except Exception as e:
+                return False, f"Failed to write file: {e}"
+
+        if target_content is None and source_content is not None:
+            # File only exists in source, use source version
+            try:
+                full_path.write_text(source_content)
+                return True, ""
+            except Exception as e:
+                return False, f"Failed to write file: {e}"
+
+        # Both versions exist - use AI to merge them
+        prompt = f"""You are merging two versions of a file. Your task is to intelligently combine both versions into a single coherent file.
+
+FILE: {relative_path}
+
+SOURCE BRANCH ({source_branch}) - The incoming changes:
+```
+{source_content}
+```
+
+TARGET BRANCH ({target_branch}) - The current version:
+```
+{target_content}
+```
+
+YOUR TASK:
+1. Analyze both versions carefully
+2. Identify what each version adds, removes, or changes
+3. Create a merged version that:
+   - Incorporates changes from BOTH branches where possible
+   - Resolves any contradictions intelligently
+   - Maintains code correctness and consistency
+   - Preserves the intent of both sets of changes
+4. Output ONLY the merged file content
+5. Do NOT include any explanation - output ONLY the final merged file content
+
+OUTPUT the merged file content below (no markdown code blocks, no explanations):"""
+
+        # Run Claude to regenerate
+        merged_content, error = self._run_claude_regeneration(prompt, full_path.parent)
+
+        if error:
+            return False, error
+
+        # Write merged content
+        try:
+            full_path.write_text(merged_content)
+            return True, ""
+        except Exception as e:
+            return False, f"Failed to write merged file: {e}"
+
+    def _run_claude_regeneration(self, prompt: str, working_dir: Path) -> tuple[str | None, str | None]:
+        """Run Claude Code to regenerate a file.
+
+        Args:
+            prompt: The prompt for file regeneration
+            working_dir: Working directory for Claude
+
+        Returns:
+            (merged_content, error) tuple - one will be None
+        """
+        cmd = [
+            self.claude_path,
+            "-p", prompt,
+            "--output-format", "json",
+            "--allowedTools", "",  # No tools needed, just text output
+        ]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=working_dir,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+                env=os.environ.copy(),
+            )
+
+            if result.returncode != 0:
+                return None, f"Claude returned error: {result.stderr or result.stdout}"
+
+            # Parse JSON output
+            output = result.stdout
+            try:
+                json_output = json.loads(output)
+                merged = json_output.get("result", output)
+            except json.JSONDecodeError:
+                # Not JSON, use raw output
+                merged = output
+
+            # Clean up the output (remove any markdown code blocks if present)
+            merged = merged.strip()
+            if merged.startswith("```") and merged.endswith("```"):
+                # Remove code block markers
+                lines = merged.split("\n")
+                if len(lines) > 2:
+                    # Check if first line has a language identifier
+                    merged = "\n".join(lines[1:-1])
+
+            return merged, None
+
+        except subprocess.TimeoutExpired:
+            return None, f"AI regeneration timed out after {self.timeout}s"
+        except FileNotFoundError:
+            return None, f"Claude CLI not found at '{self.claude_path}'"
+        except Exception as e:
+            return None, f"Failed to run Claude: {e}"
 
 
 class MergeOrchestrator:
@@ -287,7 +529,7 @@ class MergeOrchestrator:
         self.strategies = [
             ("Auto-merge", GitAutoMerge()),
             ("AI conflict resolution", ConflictOnlyAIMerge(claude_path, timeout)),
-            ("AI file regeneration", FullFileAIMerge()),
+            ("AI file regeneration", FullFileAIMerge(claude_path, timeout)),
         ]
 
     def merge_task(self, task_id: str, target_branch: str = "main") -> tuple[bool, str]:
