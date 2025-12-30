@@ -616,7 +616,10 @@ def cmd_execute(
     max_parallel: int = 6,
     json_output: bool = False,
 ) -> int:
-    """Execute tasks in headless mode."""
+    """Execute tasks in headless mode with parallel execution."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     try:
         project = Project.load()
 
@@ -630,7 +633,55 @@ def cmd_execute(
         agent_pool = AgentPool(max_agents=max_parallel)
         pipeline = ExecutionPipeline(project, agent_pool)
 
-        # Get tasks to execute
+        # Thread-safe results collection
+        results = []
+        results_lock = threading.Lock()
+        print_lock = threading.Lock()
+
+        def execute_single_task(task):
+            """Execute a single task (runs in thread)."""
+            task_result = {
+                "task_id": task.id,
+                "title": task.title,
+                "success": False,
+                "final_status": "error",
+            }
+
+            try:
+                if not json_output:
+                    with print_lock:
+                        print(f"[START] Task {task.id}: {task.title}")
+
+                # Create worktree
+                worktree_path = worktree_mgr.create_worktree(task.id)
+
+                # Execute through pipeline
+                success = pipeline.execute_task(task, worktree_path)
+
+                # Refresh task status from database
+                updated_task = project.db.get_task(task.id)
+                final_status = updated_task.status.value if updated_task else task.status.value
+
+                task_result["success"] = success
+                task_result["final_status"] = final_status
+
+                if not json_output:
+                    with print_lock:
+                        status_str = "✓" if success else "✗"
+                        print(f"[{status_str}] Task {task.id}: {final_status}")
+
+            except Exception as e:
+                task_result["error"] = str(e)
+                if not json_output:
+                    with print_lock:
+                        print(f"[✗] Task {task.id}: Error - {e}")
+
+            with results_lock:
+                results.append(task_result)
+
+            return task_result
+
+        # Get initial tasks to execute
         if task_id:
             task = project.db.get_task(task_id)
             if not task:
@@ -640,13 +691,13 @@ def cmd_execute(
                 else:
                     print(f"Error: Task not found: {task_id}", file=sys.stderr)
                 return 1
-            tasks = [task]
+            initial_tasks = [task]
         elif spec_id:
-            tasks = project.db.get_ready_tasks(spec_id=spec_id)
+            initial_tasks = project.db.get_ready_tasks(spec_id=spec_id)
         else:
-            tasks = project.db.get_ready_tasks()
+            initial_tasks = project.db.get_ready_tasks()
 
-        if not tasks:
+        if not initial_tasks:
             if json_output:
                 result = {"success": True, "message": "No tasks ready to execute", "executed": []}
                 print(json.dumps(result, indent=2))
@@ -654,30 +705,59 @@ def cmd_execute(
                 print("No tasks ready to execute")
             return 0
 
-        # Execute tasks
-        results = []
-        for task in tasks:
-            if not json_output:
-                print(f"Executing task {task.id}: {task.title}")
+        if not json_output:
+            print(f"Found {len(initial_tasks)} tasks ready to execute (max {max_parallel} parallel)\n")
 
-            # Create worktree
-            worktree_path = worktree_mgr.create_worktree(task.id)
+        # Execute tasks in parallel with dynamic task discovery
+        # Sort by priority (1=high, 3=low) so highest priority executes first
+        pending_tasks = sorted(initial_tasks, key=lambda t: t.priority)
+        completed_task_ids = set()
 
-            # Execute through pipeline
-            success = pipeline.execute_task(task, worktree_path)
+        with ThreadPoolExecutor(max_workers=max_parallel) as executor:
+            # Submit initial batch
+            futures = {}
+            while pending_tasks and len(futures) < max_parallel:
+                task = pending_tasks.pop(0)
+                future = executor.submit(execute_single_task, task)
+                futures[future] = task.id
 
-            results.append(
-                {
-                    "task_id": task.id,
-                    "title": task.title,
-                    "success": success,
-                    "final_status": task.status.value,
-                }
-            )
+            # Process completed tasks and potentially add new ones
+            while futures:
+                # Wait for at least one task to complete
+                done_futures = []
+                for future in as_completed(futures):
+                    done_futures.append(future)
+                    break  # Process one at a time to check for new tasks
 
-            if not json_output:
-                status_str = "✓ Success" if success else "✗ Failed"
-                print(f"  {status_str} - Status: {task.status.value}\n")
+                for future in done_futures:
+                    task_id_done = futures.pop(future)
+                    completed_task_ids.add(task_id_done)
+
+                    # Check for newly ready tasks (dependencies now satisfied)
+                    if spec_id:
+                        new_ready = project.db.get_ready_tasks(spec_id=spec_id)
+                    else:
+                        new_ready = project.db.get_ready_tasks()
+
+                    for new_task in new_ready:
+                        if (
+                            new_task.id not in completed_task_ids
+                            and new_task.id not in [t.id for t in pending_tasks]
+                            and new_task.id not in futures.values()
+                        ):
+                            pending_tasks.append(new_task)
+                            if not json_output:
+                                with print_lock:
+                                    print(f"[+] New task ready: {new_task.id}")
+
+                    # Re-sort by priority after adding new tasks
+                    pending_tasks.sort(key=lambda t: t.priority)
+
+                # Submit more tasks if slots available
+                while pending_tasks and len(futures) < max_parallel:
+                    task = pending_tasks.pop(0)
+                    future = executor.submit(execute_single_task, task)
+                    futures[future] = task.id
 
         if json_output:
             result = {
@@ -686,6 +766,7 @@ def cmd_execute(
                 "total": len(results),
                 "successful": sum(1 for r in results if r["success"]),
                 "failed": sum(1 for r in results if not r["success"]),
+                "parallel_slots": max_parallel,
             }
             print(json.dumps(result, indent=2))
         else:

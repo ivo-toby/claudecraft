@@ -163,19 +163,43 @@ specflow memory-cleanup --days 30 # Remove old entries
 
 ---
 
-### 7. Parallel Task Execution
+### ~~7. Parallel Task Execution~~ COMPLETED
 
-**File:** `src/specflow/orchestration/execution.py`
-**Status:** Partial
-**Description:** Tasks execute sequentially despite `max_parallel` setting.
+**File:** `src/specflow/cli.py:cmd_execute`
+**Status:** Completed
+**Description:** Tasks now execute in parallel using ThreadPoolExecutor.
 
-**Current behavior:**
-- Processes tasks one at a time in `cmd_execute`
+**Implementation:**
+- Uses `concurrent.futures.ThreadPoolExecutor` for parallel execution
+- Respects `--max-parallel` flag (default: 6)
+- Thread-safe results collection with locks
+- Priority-based task ordering (priority 1 executes before priority 3)
+- Dynamic task discovery: newly ready tasks (dependencies satisfied) added during execution
+- Thread-safe console output with print locks
 
-**Needed:**
-- Use `AgentPool` for concurrent execution
-- Respect `max_parallel` limit
-- Handle concurrent database updates
+**Example:**
+```bash
+# Execute up to 6 tasks in parallel
+specflow execute --max-parallel 6
+
+# Execute up to 3 tasks in parallel
+specflow execute --max-parallel 3 --spec my-feature
+```
+
+**Output:**
+```
+Found 5 tasks ready to execute (max 6 parallel)
+
+[START] Task TASK-001: Setup database schema
+[START] Task TASK-002: Create API endpoints
+[START] Task TASK-003: Add authentication
+[✓] Task TASK-001: done
+[+] New task ready: TASK-004
+[START] Task TASK-004: Integration tests
+[✓] Task TASK-002: done
+...
+Completed: 5/5 tasks successful
+```
 
 ---
 
