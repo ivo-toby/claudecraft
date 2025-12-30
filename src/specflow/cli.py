@@ -406,7 +406,7 @@ def cmd_init(path: Path, update: bool = False, json_output: bool = False) -> int
             result = {
                 "success": True,
                 "project_root": str(project.root),
-                "config_dir": str(project.config_dir),
+                "config_path": str(project.config.config_path),
                 "templates_updated": update,
             }
             print(json.dumps(result, indent=2))
