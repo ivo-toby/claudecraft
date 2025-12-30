@@ -15,10 +15,25 @@ DEFAULT_CONFIG = {
     "agents": {
         "max_parallel": 6,
         "default_model": "sonnet",
-        "architect_model": "opus",
+        "architect": {
+            "model": "opus",
+        },
+        "coder": {
+            "model": "sonnet",
+        },
+        "reviewer": {
+            "model": "sonnet",
+        },
+        "tester": {
+            "model": "sonnet",
+        },
+        "qa": {
+            "model": "sonnet",
+        },
     },
     "execution": {
         "max_iterations": 10,
+        "timeout_minutes": 10,
         "worktree_dir": ".worktrees",
     },
     "database": {
@@ -47,14 +62,33 @@ class Config:
     project_name: str
     max_parallel_agents: int
     default_model: str
-    architect_model: str
     max_iterations: int
+    timeout_minutes: int
     worktree_dir: str
     database_path: str
     sync_jsonl: bool
     config_path: Path
     project_root: Path
     _raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+    def get_agent_model(self, agent_type: str) -> str:
+        """Get the model configured for a specific agent type.
+
+        Args:
+            agent_type: Agent type (architect, coder, reviewer, tester, qa)
+
+        Returns:
+            Model name (e.g., "opus", "sonnet", "haiku")
+        """
+        agents_config = self._raw.get("agents", {})
+
+        # Check for agent-specific model
+        agent_config = agents_config.get(agent_type, {})
+        if isinstance(agent_config, dict) and "model" in agent_config:
+            return agent_config["model"]
+
+        # Fall back to default model
+        return agents_config.get("default_model", self.default_model)
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Config":
@@ -80,8 +114,8 @@ class Config:
             project_name=merged["project"]["name"],
             max_parallel_agents=merged["agents"]["max_parallel"],
             default_model=merged["agents"]["default_model"],
-            architect_model=merged["agents"]["architect_model"],
             max_iterations=merged["execution"]["max_iterations"],
+            timeout_minutes=merged["execution"].get("timeout_minutes", 10),
             worktree_dir=merged["execution"]["worktree_dir"],
             database_path=merged["database"]["path"],
             sync_jsonl=merged["database"]["sync_jsonl"],

@@ -241,19 +241,34 @@ database:
 
 ## Low Priority
 
-### 9. Agent Model Configuration
+### ~~9. Agent Model Configuration~~ COMPLETED
 
-**File:** `.specflow/config.yaml`
-**Status:** Partial
-**Description:** Config supports model selection per agent but it's not used.
+**File:** `src/specflow/core/config.py`, `src/specflow/orchestration/execution.py`
+**Status:** Completed
+**Description:** Per-agent model configuration now fully supported.
 
-**Current behavior:**
-- Config file has model settings
-- Execution pipeline ignores them
+**Implementation:**
+- Config supports per-agent model settings (architect, coder, reviewer, tester, qa)
+- `Config.get_agent_model(agent_type)` method retrieves model for specific agent
+- `ExecutionPipeline` reads model config and passes `--model` flag to Claude Code
+- Falls back to `default_model` if agent-specific model not configured
 
-**Needed:**
-- Read model config in `ExecutionPipeline`
-- Pass `--model` flag to Claude Code
+**Configuration Example:**
+```yaml
+agents:
+  max_parallel: 6
+  default_model: sonnet
+  architect:
+    model: opus      # Use Opus for architecture decisions
+  coder:
+    model: sonnet    # Use Sonnet for implementation
+  reviewer:
+    model: sonnet
+  tester:
+    model: sonnet
+  qa:
+    model: sonnet
+```
 
 ---
 
@@ -263,27 +278,30 @@ database:
 **Status:** Partial
 **Description:** `AgentPool` exists but doesn't use priority for task ordering.
 
-**Current behavior:**
-- Tasks execute in order received
-
-**Needed:**
-- Sort tasks by priority before execution
-- Priority 1 (high) executes before Priority 3 (low)
+**Note:** Priority-based execution is now implemented in `cmd_execute` using
+`sorted(tasks, key=lambda t: t.priority)`. The AgentPool itself doesn't need
+priority queuing since task selection happens in the CLI execute command.
 
 ---
 
-### 11. Execution Timeout Configuration
+### ~~11. Execution Timeout Configuration~~ COMPLETED
 
-**File:** `src/specflow/orchestration/execution.py:74`
-**Status:** Partial
-**Description:** Timeout is hardcoded to 600 seconds.
+**File:** `src/specflow/core/config.py`, `src/specflow/cli.py`
+**Status:** Completed
+**Description:** Timeout is now configurable via config.
 
-**Current behavior:**
-- `timeout: int = 600` is hardcoded
+**Implementation:**
+- `timeout_minutes` added to config (default: 10 minutes)
+- CLI reads `project.config.timeout_minutes` and passes to ExecutionPipeline
+- Converted from minutes to seconds: `timeout_seconds = timeout_minutes * 60`
 
-**Needed:**
-- Read from config: `execution.timeout_minutes`
-- Convert to seconds and pass to pipeline
+**Configuration Example:**
+```yaml
+execution:
+  max_iterations: 10
+  timeout_minutes: 30    # Agent timeout per stage
+  worktree_dir: .worktrees
+```
 
 ---
 
@@ -305,6 +323,8 @@ These were previously placeholders but are now implemented:
 - [x] Cross-Session Memory System - Memory persistence across sessions with CLI
 - [x] Parallel Task Execution - ThreadPoolExecutor with priority ordering
 - [x] JSONL Sync - Git-friendly database with auto-sync and CLI commands
+- [x] Agent Model Configuration - Per-agent model selection with --model flag
+- [x] Execution Timeout Configuration - Configurable timeout via config
 
 ---
 

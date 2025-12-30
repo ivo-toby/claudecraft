@@ -172,12 +172,16 @@ class ExecutionPipeline:
         # Get allowed tools for this agent type
         allowed_tools = AGENT_ALLOWED_TOOLS.get(stage.agent_type, "Read,Grep,Glob")
 
+        # Get the model for this agent type from config
+        model = self.project.config.get_agent_model(stage.agent_type.value)
+
         # Run Claude Code in headless mode
         output, session_id, success = self._run_claude_headless(
             prompt=prompt,
             working_dir=worktree_path,
             allowed_tools=allowed_tools,
             agent_type=stage.agent_type,
+            model=model,
         )
 
         duration_ms = int((time.time() - start_time) * 1000)
@@ -340,8 +344,16 @@ Output one of:
         working_dir: Path,
         allowed_tools: str,
         agent_type: AgentType,
+        model: str | None = None,
     ) -> tuple[str, str | None, bool]:
         """Run Claude Code in headless mode.
+
+        Args:
+            prompt: The prompt to send to Claude
+            working_dir: Working directory for execution
+            allowed_tools: Comma-separated list of allowed tools
+            agent_type: Type of agent being executed
+            model: Model to use (opus, sonnet, haiku). If None, uses Claude's default.
 
         Returns:
             Tuple of (output, session_id, success)
@@ -352,6 +364,10 @@ Output one of:
             "--output-format", "json",
             "--allowedTools", allowed_tools,
         ]
+
+        # Add model flag if specified
+        if model:
+            cmd.extend(["--model", model])
 
         env = os.environ.copy()
 

@@ -651,7 +651,9 @@ def cmd_execute(
         # Initialize components
         worktree_mgr = WorktreeManager(project.root)
         agent_pool = AgentPool(max_agents=max_parallel)
-        pipeline = ExecutionPipeline(project, agent_pool)
+        # Use timeout from config (converted from minutes to seconds)
+        timeout_seconds = project.config.timeout_minutes * 60
+        pipeline = ExecutionPipeline(project, agent_pool, timeout=timeout_seconds)
 
         # Thread-safe results collection
         results = []

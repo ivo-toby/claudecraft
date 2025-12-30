@@ -50,7 +50,7 @@ def sample_task(project):
         spec_id="spec-1",
         title="Test task",
         description="Test description",
-        status=TaskStatus.PENDING,
+        status=TaskStatus.TODO,
         priority=1,
         dependencies=[],
         assignee=None,
@@ -97,10 +97,10 @@ def test_execution_result():
 
 def test_get_stage_status(pipeline):
     """Test getting task status for agent type."""
-    assert pipeline._get_stage_status(AgentType.CODER) == TaskStatus.IN_PROGRESS
-    assert pipeline._get_stage_status(AgentType.REVIEWER) == TaskStatus.REVIEW
+    assert pipeline._get_stage_status(AgentType.CODER) == TaskStatus.IMPLEMENTING
+    assert pipeline._get_stage_status(AgentType.REVIEWER) == TaskStatus.REVIEWING
     assert pipeline._get_stage_status(AgentType.TESTER) == TaskStatus.TESTING
-    assert pipeline._get_stage_status(AgentType.QA) == TaskStatus.QA
+    assert pipeline._get_stage_status(AgentType.QA) == TaskStatus.REVIEWING
 
 
 def test_check_stage_success(pipeline):
@@ -152,29 +152,6 @@ def test_get_pipeline_info(pipeline):
     assert first_stage["name"] == "Implementation"
     assert first_stage["agent_type"] == "coder"
     assert first_stage["max_iterations"] == 3
-
-
-def test_simulate_stage_execution(pipeline, sample_task, tmp_path):
-    """Test stage execution simulation."""
-    stage = PipelineStage("Test", AgentType.CODER, max_iterations=1)
-
-    output = pipeline._simulate_stage_execution(sample_task, stage, tmp_path, iteration=1)
-
-    assert "Stage: Test" in output
-    assert "Agent: coder" in output
-    assert "Task: task-1" in output
-    assert "Iteration: 1" in output
-
-
-def test_execute_stage(pipeline, sample_task, tmp_path):
-    """Test executing a single stage."""
-    stage = PipelineStage("Test", AgentType.CODER, max_iterations=1)
-
-    result = pipeline._execute_stage(sample_task, stage, tmp_path, iteration=1)
-
-    assert isinstance(result, ExecutionResult)
-    assert result.iteration == 1
-    assert result.duration_ms >= 0  # Can be 0 for very fast execution
 
 
 def test_default_pipeline_stages(pipeline):

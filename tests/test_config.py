@@ -64,8 +64,11 @@ class TestConfig:
         assert config.project_name == "my-project"
         assert config.max_parallel_agents == 6
         assert config.default_model == "sonnet"
-        assert config.architect_model == "opus"
+        assert config.get_agent_model("architect") == "opus"
+        assert config.get_agent_model("coder") == "sonnet"
+        assert config.get_agent_model("reviewer") == "sonnet"
         assert config.max_iterations == 10
+        assert config.timeout_minutes == 10
         assert config.config_path == config_path
 
     def test_load_config(self, temp_config):
