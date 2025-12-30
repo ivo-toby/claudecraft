@@ -144,13 +144,20 @@ prompt += """
 ## Creating Follow-up Tasks
 
 When you encounter work that should be done but is outside your current task scope,
-create a follow-up task using:
+you may create a follow-up task. But FIRST check if a similar task already exists:
 
 ```bash
+# Step 1: ALWAYS check existing tasks first
+specflow list-tasks --spec {SPEC-ID} --json
+
+# Step 2: Only if no similar task exists, create a new one
 specflow task-create {CATEGORY}-{NUMBER} {SPEC-ID} "Task title" \\
     --priority {2|3} \\
     --description "Detailed description of what needs to be done"
 ```
+
+IMPORTANT: Before creating a task, review the existing task list to avoid duplicates.
+If a similar task exists, you can skip creation or add a comment to the existing task.
 
 Categories:
 - PLACEHOLDER-xxx: Code you marked with TODO/NotImplementedError
