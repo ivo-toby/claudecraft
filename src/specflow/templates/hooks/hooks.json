@@ -23,6 +23,12 @@
       "matcher": {},
       "command": "bash .claude/hooks/scripts/run-tests.sh",
       "description": "Run tests before any commit"
+    },
+    {
+      "event": "Stop",
+      "matcher": {},
+      "command": "python3 .claude/hooks/scripts/stop-check.py",
+      "description": "Check task completion and optionally generate documentation"
     }
   ]
 }

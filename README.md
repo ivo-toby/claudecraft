@@ -93,6 +93,18 @@ You stay in control through human approval gates during specification, then let 
 - **Parent Task Linking** — Follow-up tasks link to their source task
 - **Visual Indicators** — TUI shows colored badges for follow-up task types
 
+### Claude Code Hooks
+- **Stop Hook** — Runs when Claude finishes, validates task completion
+- **Configurable Checks** — Require commits, test runs, or custom conditions
+- **Auto Documentation** — Trigger docs generation on task completion
+- **Loop Prevention** — Built-in protection against infinite hook loops
+
+### Documentation Generation
+- **Architectural Docs** — Auto-generate ARCHITECTURE.md with design decisions
+- **Component Docs** — Detailed documentation for each major module
+- **API Reference** — Endpoint/function documentation if applicable
+- **Incremental Updates** — Update existing docs instead of recreating
+
 ## Installation
 
 ### Prerequisites
@@ -259,6 +271,30 @@ JSONL sync enables git-based collaboration:
 1. Changes are automatically recorded to `specs.jsonl`
 2. Commit and push the JSONL file
 3. Collaborators pull and changes are imported on next `specflow` run
+
+### Documentation Generation
+
+```bash
+specflow generate-docs [--spec ID] [--output DIR] [--model MODEL]
+```
+
+Generate comprehensive developer documentation for your codebase. The docs-generator agent analyzes your code and creates:
+- `docs/ARCHITECTURE.md` - High-level architecture overview and design decisions
+- `docs/components/` - Detailed documentation for each major component
+- API reference documentation (if applicable)
+
+**Examples:**
+
+```bash
+# Generate docs for entire codebase
+specflow generate-docs
+
+# Generate docs for specific spec
+specflow generate-docs --spec auth-feature
+
+# Use a specific model
+specflow generate-docs --model opus
+```
 
 ### Headless Execution
 
@@ -525,6 +561,8 @@ agents:
     model: sonnet
   qa:
     model: sonnet
+  docs_generator:
+    model: sonnet           # Model for documentation generation
 
 execution:
   max_iterations: 10        # Max retries across all pipeline stages
@@ -534,6 +572,17 @@ execution:
 database:
   path: .specflow/specflow.db
   sync_jsonl: true          # Enable JSONL sync for git collaboration
+
+hooks:
+  stop:
+    enabled: true           # Enable stop hook for task completion checks
+    require_commit: false   # Block if uncommitted changes exist
+    require_tests: false    # Block if tests weren't run
+
+docs:
+  enabled: false            # Enable automatic documentation generation
+  generate_on_complete: false  # Generate docs when tasks complete
+  output_dir: docs          # Output directory for generated docs
 ```
 
 ### Configuration Options
@@ -546,6 +595,12 @@ database:
 | `execution.max_iterations` | 10 | Max retries across pipeline stages |
 | `execution.timeout_minutes` | 10 | Timeout per agent execution |
 | `database.sync_jsonl` | true | Auto-sync changes to JSONL for git |
+| `hooks.stop.enabled` | true | Enable stop hook for completion checks |
+| `hooks.stop.require_commit` | false | Block if uncommitted changes exist |
+| `hooks.stop.require_tests` | false | Block if tests weren't run |
+| `docs.enabled` | false | Enable documentation generation feature |
+| `docs.generate_on_complete` | false | Auto-generate docs on task completion |
+| `docs.output_dir` | docs | Output directory for generated docs |
 
 ## Development
 

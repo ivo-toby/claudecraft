@@ -331,6 +331,8 @@ These were previously placeholders but are now implemented:
 - [x] Agent Model Configuration - Per-agent model selection with --model flag
 - [x] Task Priority Queuing - Priority-based task ordering in parallel execution
 - [x] Execution Timeout Configuration - Configurable timeout via config
+- [x] Claude Code Stop Hook - Validates task completion before Claude stops
+- [x] Documentation Generation - Auto-generate architectural docs with generate-docs command
 
 ---
 
@@ -344,4 +346,4 @@ These were previously placeholders but are now implemented:
 
 ---
 
-*Last updated: 2025-12-30*
+*Last updated: 2025-12-31*

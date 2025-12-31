@@ -309,6 +309,22 @@ def main() -> int:
         "--cleanup", action="store_true", help="Remove worktree and branch after merge"
     )
 
+    # generate-docs command
+    generate_docs_parser = subparsers.add_parser(
+        "generate-docs", help="Generate developer documentation for the codebase"
+    )
+    generate_docs_parser.add_argument(
+        "--spec", help="Generate docs for specific spec ID (optional)"
+    )
+    generate_docs_parser.add_argument(
+        "--output", help="Output directory (default: from config or 'docs')"
+    )
+    generate_docs_parser.add_argument(
+        "--model",
+        choices=["opus", "sonnet", "haiku"],
+        help="Model to use for generation (default: from config)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "init":
@@ -393,6 +409,8 @@ def main() -> int:
         return cmd_worktree_commit(args.task_id, args.message, args.json)
     elif args.command == "merge-task":
         return cmd_merge_task(args.task_id, args.target, args.cleanup, args.json)
+    elif args.command == "generate-docs":
+        return cmd_generate_docs(args.spec, args.output, args.model, args.json)
     else:
         # Default to TUI if no command specified
         return cmd_tui(Path.cwd())
@@ -1955,6 +1973,167 @@ def cmd_merge_task(
             if success and cleanup:
                 print(f"  Cleaned up worktree and branch for {task_id}")
         return 0 if success else 1
+    except FileNotFoundError:
+        if json_output:
+            result = {"success": False, "error": "Not a SpecFlow project"}
+            print(json.dumps(result, indent=2))
+        else:
+            print("Not a SpecFlow project (no .specflow directory found)", file=sys.stderr)
+        return 1
+    except Exception as e:
+        if json_output:
+            result = {"success": False, "error": str(e)}
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_generate_docs(
+    spec_id: str | None = None,
+    output_dir: str | None = None,
+    model: str | None = None,
+    json_output: bool = False,
+) -> int:
+    """Generate developer documentation using the docs-generator agent.
+
+    This command runs the docs-generator agent to create/update architectural
+    documentation for the codebase. The agent analyzes the code and generates:
+    - ARCHITECTURE.md - High-level overview and design decisions
+    - Component documentation in docs/components/
+    - API reference if applicable
+    """
+    import os
+    import subprocess
+
+    try:
+        project = Project.load()
+
+        # Determine output directory
+        docs_dir = output_dir or project.config.docs_output_dir or "docs"
+        docs_path = project.root / docs_dir
+
+        # Create docs directory if it doesn't exist
+        docs_path.mkdir(parents=True, exist_ok=True)
+
+        # Determine which model to use
+        agent_model = model or project.config.get_agent_model("docs_generator")
+
+        # Build the prompt for the docs generator
+        spec_context = ""
+        if spec_id:
+            spec = project.db.get_spec(spec_id)
+            if spec:
+                spec_dir = project.spec_dir(spec_id)
+                spec_content = ""
+                for filename in ["spec.md", "plan.md", "brd.md", "prd.md"]:
+                    file_path = spec_dir / filename
+                    if file_path.exists():
+                        spec_content += f"\n\n## {filename}\n{file_path.read_text()}"
+                if spec_content:
+                    spec_context = f"\n\n## Specification Context\n{spec_content}"
+
+        prompt = f"""You are the docs-generator agent. Generate comprehensive developer documentation.
+
+## Working Directory
+You are working in: {project.root}
+
+## Output Directory
+Write documentation to: {docs_path}
+{spec_context}
+## Instructions
+
+1. Analyze the codebase structure:
+   - Read key source files to understand the architecture
+   - Identify major components and their relationships
+   - Note design patterns and conventions
+
+2. Create/Update documentation:
+   - Create {docs_dir}/ARCHITECTURE.md with high-level overview
+   - Create component docs in {docs_dir}/components/ for major modules
+   - Include practical code examples and file references
+
+3. Guidelines:
+   - Be concise but comprehensive
+   - Include file paths and line numbers for code references
+   - Explain design decisions and trade-offs
+   - Update existing docs rather than creating duplicates
+
+When complete, output: DOCUMENTATION UPDATED
+If there are issues, output: DOCUMENTATION FAILED: [reason]
+"""
+
+        if not json_output:
+            print(f"Generating documentation in {docs_path}...")
+            print(f"Using model: {agent_model}")
+
+        # Run Claude Code in headless mode
+        cmd = [
+            "claude",
+            "-p", prompt,
+            "--output-format", "json",
+            "--allowedTools", "Read,Write,Edit,Glob,Grep,Bash",
+        ]
+
+        if agent_model:
+            cmd.extend(["--model", agent_model])
+
+        env = os.environ.copy()
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=project.root,
+                capture_output=True,
+                text=True,
+                timeout=project.config.timeout_minutes * 60,
+                env=env,
+            )
+
+            output = result.stdout
+            success = result.returncode == 0
+
+            # Check for success indicators
+            if "DOCUMENTATION UPDATED" in output.upper():
+                success = True
+            elif "DOCUMENTATION FAILED" in output.upper():
+                success = False
+
+            if json_output:
+                result_dict = {
+                    "success": success,
+                    "output_dir": str(docs_path),
+                    "model": agent_model,
+                    "spec_id": spec_id,
+                    "output": output[:2000] if len(output) > 2000 else output,
+                }
+                print(json.dumps(result_dict, indent=2))
+            else:
+                if success:
+                    print(f"\nDocumentation generated successfully in {docs_path}")
+                else:
+                    print(f"\nDocumentation generation failed")
+                    if result.stderr:
+                        print(f"Error: {result.stderr[:500]}")
+
+            return 0 if success else 1
+
+        except subprocess.TimeoutExpired:
+            error_msg = f"Timeout: Documentation generation exceeded {project.config.timeout_minutes} minutes"
+            if json_output:
+                print(json.dumps({"success": False, "error": error_msg}, indent=2))
+            else:
+                print(error_msg, file=sys.stderr)
+            return 1
+
+        except FileNotFoundError:
+            error_msg = "Claude CLI not found. Please ensure Claude Code is installed."
+            if json_output:
+                print(json.dumps({"success": False, "error": error_msg}, indent=2))
+            else:
+                print(error_msg, file=sys.stderr)
+            return 1
+
     except FileNotFoundError:
         if json_output:
             result = {"success": False, "error": "Not a SpecFlow project"}

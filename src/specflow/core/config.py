@@ -30,6 +30,9 @@ DEFAULT_CONFIG = {
         "qa": {
             "model": "sonnet",
         },
+        "docs_generator": {
+            "model": "sonnet",
+        },
     },
     "execution": {
         "max_iterations": 10,
@@ -39,6 +42,18 @@ DEFAULT_CONFIG = {
     "database": {
         "path": ".specflow/specflow.db",
         "sync_jsonl": True,
+    },
+    "hooks": {
+        "stop": {
+            "enabled": True,
+            "require_commit": False,
+            "require_tests": False,
+        },
+    },
+    "docs": {
+        "enabled": False,
+        "generate_on_complete": False,
+        "output_dir": "docs",
     },
 }
 
@@ -69,6 +84,14 @@ class Config:
     sync_jsonl: bool
     config_path: Path
     project_root: Path
+    # Hooks configuration
+    stop_hook_enabled: bool = True
+    stop_hook_require_commit: bool = False
+    stop_hook_require_tests: bool = False
+    # Docs generation configuration
+    docs_enabled: bool = False
+    docs_generate_on_complete: bool = False
+    docs_output_dir: str = "docs"
     _raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
     def get_agent_model(self, agent_type: str) -> str:
@@ -110,6 +133,13 @@ class Config:
         # Merge with defaults
         merged = _deep_merge(DEFAULT_CONFIG.copy(), raw)
 
+        # Extract hooks config
+        hooks_config = merged.get("hooks", {})
+        stop_hook_config = hooks_config.get("stop", {})
+
+        # Extract docs config
+        docs_config = merged.get("docs", {})
+
         return cls(
             project_name=merged["project"]["name"],
             max_parallel_agents=merged["agents"]["max_parallel"],
@@ -121,6 +151,14 @@ class Config:
             sync_jsonl=merged["database"]["sync_jsonl"],
             config_path=path,
             project_root=project_root,
+            # Hooks configuration
+            stop_hook_enabled=stop_hook_config.get("enabled", True),
+            stop_hook_require_commit=stop_hook_config.get("require_commit", False),
+            stop_hook_require_tests=stop_hook_config.get("require_tests", False),
+            # Docs configuration
+            docs_enabled=docs_config.get("enabled", False),
+            docs_generate_on_complete=docs_config.get("generate_on_complete", False),
+            docs_output_dir=docs_config.get("output_dir", "docs"),
             _raw=merged,
         )
 
