@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This specification defines a comprehensive overhaul of SpecFlow's task management system to:
+This specification defines a comprehensive overhaul of ClaudeCraft's task management system to:
 
 1. **Make the database the single source of truth** for all task data (eliminate `tasks.md`)
 2. **Add a swimlane-based task board** in the TUI for visual task management
@@ -60,8 +60,8 @@ This change bridges the gap between Claude Code execution and TUI visibility, en
 │  Claude Code ◄─────────────────────────────► TUI Swimlanes      │
 │  agents                                     (reactive)          │
 │    │                                             │              │
-│    │ /specflow.tasks                             │ User actions │
-│    │ /specflow.implement                         │ (drag/drop)  │
+│    │ /claudecraft.tasks                             │ User actions │
+│    │ /claudecraft.implement                         │ (drag/drop)  │
 │    └─────────────────────────────────────────────┘              │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -77,8 +77,8 @@ This change bridges the gap between Claude Code execution and TUI visibility, en
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| R1.1 | `/specflow.tasks` MUST create tasks directly in the database | MUST |
-| R1.2 | `/specflow.tasks` MUST NOT create or modify `tasks.md` file | MUST |
+| R1.1 | `/claudecraft.tasks` MUST create tasks directly in the database | MUST |
+| R1.2 | `/claudecraft.tasks` MUST NOT create or modify `tasks.md` file | MUST |
 | R1.3 | Task data MUST only exist in the SQLite database | MUST |
 | R1.4 | Legacy `tasks.md` files MAY be imported once, then ignored | SHOULD |
 
@@ -165,7 +165,7 @@ Legend: 🔒 Blocked  ▶ In Progress  🧪 Testing  ✓ Complete  [P1/P2/P3] Pr
 
 ### 2.3 Claude Code Integration
 
-#### R5: /specflow.tasks Command
+#### R5: /claudecraft.tasks Command
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
@@ -176,7 +176,7 @@ Legend: 🔒 Blocked  ▶ In Progress  🧪 Testing  ✓ Complete  [P1/P2/P3] Pr
 | R5.5 | Command MUST NOT write to `tasks.md` | MUST |
 | R5.6 | Command SHOULD provide summary of created tasks | SHOULD |
 
-#### R6: /specflow.implement Command
+#### R6: /claudecraft.implement Command
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
@@ -210,7 +210,7 @@ Legend: 🔒 Blocked  ▶ In Progress  🧪 Testing  ✓ Complete  [P1/P2/P3] Pr
 
 **Implementation Options:**
 
-1. **File watcher on SQLite** - Watch `.specflow/specflow.db` for changes
+1. **File watcher on SQLite** - Watch `.claudecraft/claudecraft.db` for changes
 2. **Polling interval** - Query database every 500ms-1s
 3. **SQLite triggers + named pipe** - Database notifies via IPC
 4. **Shared memory flag** - Agents set flag, TUI polls flag
@@ -265,7 +265,7 @@ END;
 ### 3.2 Python Database API
 
 ```python
-# src/specflow/core/database.py additions
+# src/claudecraft/core/database.py additions
 
 class TaskStatus(Enum):
     TODO = "todo"
@@ -308,7 +308,7 @@ class Database:
 ### 3.3 Swimlane Widget
 
 ```python
-# src/specflow/tui/widgets/swimlanes.py
+# src/claudecraft/tui/widgets/swimlanes.py
 
 class TaskCard(Static):
     """Single task card in a swimlane."""
@@ -408,14 +408,14 @@ class SwimlaneBoard(Container):
 
 ### 3.5 Command Updates
 
-#### /specflow.tasks
+#### /claudecraft.tasks
 
 ```python
-# .claude/commands/specflow.tasks.md behavior
+# .claude/commands/claudecraft.tasks.md behavior
 
 async def create_tasks_in_database(spec_id: str, tasks: list[dict]) -> None:
     """Create tasks from plan decomposition."""
-    from specflow.core.project import Project
+    from claudecraft.core.project import Project
 
     project = Project.load()
     db = project.db
@@ -432,15 +432,15 @@ async def create_tasks_in_database(spec_id: str, tasks: list[dict]) -> None:
     print(f"Created {len(tasks)} tasks in database for spec {spec_id}")
 ```
 
-#### /specflow.implement
+#### /claudecraft.implement
 
 ```python
-# .claude/commands/specflow.implement.md behavior
+# .claude/commands/claudecraft.implement.md behavior
 
 async def implement_task(task_id: str) -> None:
     """Implement a single task with status updates."""
-    from specflow.core.project import Project
-    from specflow.core.database import TaskStatus
+    from claudecraft.core.project import Project
+    from claudecraft.core.database import TaskStatus
 
     project = Project.load()
     db = project.db
@@ -494,7 +494,7 @@ def migrate_v1_to_v2():
    - Import tasks from `tasks.md` to database
    - Rename `tasks.md` to `tasks.md.legacy`
 2. Future runs ignore `tasks.md.legacy`
-3. `/specflow.tasks` only writes to database
+3. `/claudecraft.tasks` only writes to database
 
 ---
 
@@ -523,7 +523,7 @@ I want to see task status update as Claude Code works,
 So that I know implementation progress without refreshing.
 
 Acceptance Criteria:
-- Start /specflow.implement in Claude Code
+- Start /claudecraft.implement in Claude Code
 - Watch TUI swimlane board
 - See task move from Todo → Implementing → Testing → Reviewing → Done
 - Updates appear within 1-2 seconds of status change
@@ -533,11 +533,11 @@ Acceptance Criteria:
 
 ```
 As a developer,
-I want /specflow.tasks to create tasks in the database,
+I want /claudecraft.tasks to create tasks in the database,
 So that they're immediately visible in the TUI.
 
 Acceptance Criteria:
-- Run /specflow.tasks on an approved spec
+- Run /claudecraft.tasks on an approved spec
 - Tasks appear in database immediately
 - No tasks.md file is created
 - TUI swimlane shows new tasks in Todo column
@@ -600,7 +600,7 @@ Acceptance Criteria:
 
 ### Phase 2: Swimlane Widget
 
-1. Create `src/specflow/tui/widgets/swimlanes.py`
+1. Create `src/claudecraft/tui/widgets/swimlanes.py`
 2. Implement `TaskCard` widget
 3. Implement `SwimLane` column widget
 4. Implement `SwimlaneBoard` container
@@ -618,8 +618,8 @@ Acceptance Criteria:
 
 ### Phase 4: Claude Code Integration
 
-1. Update `/specflow.tasks` command to write to database
-2. Update `/specflow.implement` command to update status
+1. Update `/claudecraft.tasks` command to write to database
+2. Update `/claudecraft.implement` command to update status
 3. Remove `tasks.md` generation code
 4. Add database import to skills/commands
 5. Write integration tests

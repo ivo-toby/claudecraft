@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from specflow.core.project import Project
+from claudecraft.core.project import Project
 
 
 class TestProject:
@@ -14,12 +14,12 @@ class TestProject:
         """Test project initialization creates required directories."""
         project = Project.init(temp_dir)
 
-        assert (temp_dir / ".specflow").is_dir()
-        assert (temp_dir / ".specflow" / "memory").is_dir()
+        assert (temp_dir / ".claudecraft").is_dir()
+        assert (temp_dir / ".claudecraft" / "memory").is_dir()
         assert (temp_dir / "specs").is_dir()
         assert (temp_dir / ".claude" / "agents").is_dir()
         assert (temp_dir / ".claude" / "commands").is_dir()
-        assert (temp_dir / ".claude" / "skills" / "specflow").is_dir()
+        assert (temp_dir / ".claude" / "skills" / "claudecraft").is_dir()
         assert (temp_dir / ".claude" / "hooks" / "scripts").is_dir()
         assert (temp_dir / ".worktrees").is_dir()
 
@@ -29,7 +29,7 @@ class TestProject:
         """Test project initialization creates config file."""
         project = Project.init(temp_dir)
 
-        config_path = temp_dir / ".specflow" / "config.yaml"
+        config_path = temp_dir / ".claudecraft" / "config.yaml"
         assert config_path.exists()
         assert project.config.project_name == temp_dir.name
 
@@ -39,7 +39,7 @@ class TestProject:
         """Test project initialization creates database."""
         project = Project.init(temp_dir)
 
-        db_path = temp_dir / ".specflow" / "specflow.db"
+        db_path = temp_dir / ".claudecraft" / "claudecraft.db"
         assert db_path.exists()
 
         project.close()
@@ -48,7 +48,7 @@ class TestProject:
         """Test project initialization creates constitution template."""
         project = Project.init(temp_dir)
 
-        constitution_path = temp_dir / ".specflow" / "constitution.md"
+        constitution_path = temp_dir / ".claudecraft" / "constitution.md"
         assert constitution_path.exists()
 
         content = constitution_path.read_text()
@@ -72,7 +72,7 @@ class TestProject:
         root = temp_project.root
         temp_project.close()
 
-        loaded = Project.load(root / ".specflow" / "config.yaml")
+        loaded = Project.load(root / ".claudecraft" / "config.yaml")
         assert loaded.root == root
         assert loaded.config.project_name == root.name
 
@@ -100,7 +100,7 @@ class TestProject:
         project1.close()
 
         # Modify constitution
-        constitution = temp_dir / ".specflow" / "constitution.md"
+        constitution = temp_dir / ".claudecraft" / "constitution.md"
         constitution.write_text("# Custom Constitution\n")
 
         # Re-init should not overwrite

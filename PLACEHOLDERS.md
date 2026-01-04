@@ -1,6 +1,6 @@
-# SpecFlow Implementation Placeholders
+# ClaudeCraft Implementation Placeholders
 
-This document tracks all placeholders, TODOs, and incomplete implementations in the SpecFlow codebase.
+This document tracks all placeholders, TODOs, and incomplete implementations in the ClaudeCraft codebase.
 
 ## Status Legend
 
@@ -14,7 +14,7 @@ This document tracks all placeholders, TODOs, and incomplete implementations in 
 
 ### ~~1. AI Conflict Resolution (Tier 2 Merge)~~ COMPLETED
 
-**File:** `src/specflow/orchestration/merge.py:51-254`
+**File:** `src/claudecraft/orchestration/merge.py:51-254`
 **Status:** Completed
 **Description:** The `ConflictOnlyAIMerge` class now uses Claude Code to resolve git merge conflicts.
 
@@ -33,7 +33,7 @@ This document tracks all placeholders, TODOs, and incomplete implementations in 
 
 ### ~~2. AI File Regeneration (Tier 3 Merge)~~ COMPLETED
 
-**File:** `src/specflow/orchestration/merge.py:257-512`
+**File:** `src/claudecraft/orchestration/merge.py:257-512`
 **Status:** Completed
 **Description:** The `FullFileAIMerge` class now regenerates conflicted files using Claude Code.
 
@@ -57,7 +57,7 @@ This document tracks all placeholders, TODOs, and incomplete implementations in 
 
 ### ~~3. TUI New Spec Dialog~~ COMPLETED
 
-**File:** `src/specflow/tui/widgets/new_spec_screen.py`
+**File:** `src/claudecraft/tui/widgets/new_spec_screen.py`
 **Status:** Completed
 **Description:** Modal dialog for creating new specifications.
 
@@ -75,7 +75,7 @@ This document tracks all placeholders, TODOs, and incomplete implementations in 
 
 ### ~~4. TUI Help Screen~~ COMPLETED
 
-**File:** `src/specflow/tui/widgets/help_screen.py`
+**File:** `src/claudecraft/tui/widgets/help_screen.py`
 **Status:** Completed
 **Description:** Help screen with keyboard shortcuts and quick start guide.
 
@@ -94,13 +94,13 @@ This document tracks all placeholders, TODOs, and incomplete implementations in 
 
 ### ~~5. Agent-Created Follow-up Tasks~~ COMPLETED
 
-**File:** `src/specflow/orchestration/execution.py:201-287`
+**File:** `src/claudecraft/orchestration/execution.py:201-287`
 **Status:** Completed
 **Description:** Agents now create follow-up tasks when they encounter technical debt, placeholders, or improvement opportunities during implementation.
 
 **Implementation:**
 - Updated `_build_agent_prompt()` with follow-up task instructions for all agents
-- Added `specflow task-followup` CLI command with metadata tracking
+- Added `claudecraft task-followup` CLI command with metadata tracking
 - Task metadata includes: `is_followup`, `category`, `parent_task`, `created_by_agent`
 - TUI swimlanes show colored category badges for follow-up tasks
 - TaskDetailModal displays parent task and category info
@@ -119,10 +119,10 @@ This document tracks all placeholders, TODOs, and incomplete implementations in 
 **CLI Usage:**
 ```bash
 # Check existing tasks first
-specflow list-tasks --spec my-feature --json
+claudecraft list-tasks --spec my-feature --json
 
 # Create follow-up task
-specflow task-followup TECH-DEBT-001 my-feature "Refactor database pooling" \
+claudecraft task-followup TECH-DEBT-001 my-feature "Refactor database pooling" \
     --parent TASK-005 \
     --priority 3 \
     --description "Add connection pooling to database module"
@@ -134,7 +134,7 @@ specflow task-followup TECH-DEBT-001 my-feature "Refactor database pooling" \
 
 ### ~~6. Cross-Session Memory System~~ COMPLETED
 
-**File:** `src/specflow/memory/store.py`, `src/specflow/orchestration/execution.py`
+**File:** `src/claudecraft/memory/store.py`, `src/claudecraft/orchestration/execution.py`
 **Status:** Completed
 **Description:** Cross-session memory system for persisting knowledge across agent executions.
 
@@ -147,12 +147,12 @@ specflow task-followup TECH-DEBT-001 my-feature "Refactor database pooling" \
 
 **CLI Commands:**
 ```bash
-specflow memory-stats           # Show memory statistics
-specflow memory-list            # List all memory entries
-specflow memory-list --type decision --spec my-feature
-specflow memory-search "pattern"  # Search by keyword
-specflow memory-add decision "Use SQLite" "Decision to use SQLite for persistence"
-specflow memory-cleanup --days 30 # Remove old entries
+claudecraft memory-stats           # Show memory statistics
+claudecraft memory-list            # List all memory entries
+claudecraft memory-list --type decision --spec my-feature
+claudecraft memory-search "pattern"  # Search by keyword
+claudecraft memory-add decision "Use SQLite" "Decision to use SQLite for persistence"
+claudecraft memory-cleanup --days 30 # Remove old entries
 ```
 
 **Features:**
@@ -165,7 +165,7 @@ specflow memory-cleanup --days 30 # Remove old entries
 
 ### ~~7. Parallel Task Execution~~ COMPLETED
 
-**File:** `src/specflow/cli.py:cmd_execute`
+**File:** `src/claudecraft/cli.py:cmd_execute`
 **Status:** Completed
 **Description:** Tasks now execute in parallel using ThreadPoolExecutor.
 
@@ -180,10 +180,10 @@ specflow memory-cleanup --days 30 # Remove old entries
 **Example:**
 ```bash
 # Execute up to 6 tasks in parallel
-specflow execute --max-parallel 6
+claudecraft execute --max-parallel 6
 
 # Execute up to 3 tasks in parallel
-specflow execute --max-parallel 3 --spec my-feature
+claudecraft execute --max-parallel 3 --spec my-feature
 ```
 
 **Output:**
@@ -205,7 +205,7 @@ Completed: 5/5 tasks successful
 
 ### ~~8. JSONL Sync for Git-Friendly Database~~ COMPLETED
 
-**File:** `src/specflow/core/sync.py`
+**File:** `src/claudecraft/core/sync.py`
 **Status:** Completed
 **Description:** Full JSONL sync for git-friendly database collaboration.
 
@@ -218,16 +218,16 @@ Completed: 5/5 tasks successful
 
 **CLI Commands:**
 ```bash
-specflow sync-export    # Export database to JSONL
-specflow sync-import    # Import from JSONL to database
-specflow sync-compact   # Compact JSONL (remove superseded changes)
-specflow sync-status    # Show sync status and statistics
+claudecraft sync-export    # Export database to JSONL
+claudecraft sync-import    # Import from JSONL to database
+claudecraft sync-compact   # Compact JSONL (remove superseded changes)
+claudecraft sync-status    # Show sync status and statistics
 ```
 
 **Configuration:**
 ```yaml
 database:
-  path: .specflow/specflow.db
+  path: .claudecraft/claudecraft.db
   sync_jsonl: true  # Enable automatic JSONL sync (default)
 ```
 
@@ -235,7 +235,7 @@ database:
 1. Developer A makes changes → auto-recorded to `specs.jsonl`
 2. Developer A commits and pushes `specs.jsonl`
 3. Developer B pulls → `specs.jsonl` updated
-4. Developer B runs `specflow` → changes imported from JSONL
+4. Developer B runs `claudecraft` → changes imported from JSONL
 
 ---
 
@@ -243,7 +243,7 @@ database:
 
 ### ~~9. Agent Model Configuration~~ COMPLETED
 
-**File:** `src/specflow/core/config.py`, `src/specflow/orchestration/execution.py`
+**File:** `src/claudecraft/core/config.py`, `src/claudecraft/orchestration/execution.py`
 **Status:** Completed
 **Description:** Per-agent model configuration now fully supported.
 
@@ -274,7 +274,7 @@ agents:
 
 ### ~~10. Task Priority Queuing~~ COMPLETED
 
-**File:** `src/specflow/cli.py:cmd_execute`
+**File:** `src/claudecraft/cli.py:cmd_execute`
 **Status:** Completed
 **Description:** Priority-based task execution is fully implemented.
 
@@ -291,7 +291,7 @@ Priority sorting happens in `cmd_execute` which manages the ThreadPoolExecutor.
 
 ### ~~11. Execution Timeout Configuration~~ COMPLETED
 
-**File:** `src/specflow/core/config.py`, `src/specflow/cli.py`
+**File:** `src/claudecraft/core/config.py`, `src/claudecraft/cli.py`
 **Status:** Completed
 **Description:** Timeout is now configurable via config.
 

@@ -1,17 +1,17 @@
-# SpecFlow: Claude Code Implementation Setup
+# ClaudeCraft: Claude Code Implementation Setup
 
-This document contains all files needed to have Claude Code autonomously implement SpecFlow.
+This document contains all files needed to have Claude Code autonomously implement ClaudeCraft.
 
 ---
 
 ## CLAUDE.md (Project Memory)
 
 ```markdown
-# SpecFlow Project
+# ClaudeCraft Project
 
 ## What This Is
 
-SpecFlow is a TUI-based spec-driven development orchestrator that unifies GitHub SpecKit, Beads patterns, and Auto-Claude execution capabilities. It enables BRD/PRD ingestion → human-validated specs → fully autonomous implementation.
+ClaudeCraft is a TUI-based spec-driven development orchestrator that unifies GitHub SpecKit, Beads patterns, and Auto-Claude execution capabilities. It enables BRD/PRD ingestion → human-validated specs → fully autonomous implementation.
 
 ## Tech Stack
 
@@ -32,7 +32,7 @@ SpecFlow is a TUI-based spec-driven development orchestrator that unifies GitHub
 
 ## Directory Structure
 
-- .specflow/: Configuration and database
+- .claudecraft/: Configuration and database
 - specs/{spec-id}/: Specification documents
 - .claude/agents/: Sub-agent definitions
 - .claude/commands/: Slash commands
@@ -52,10 +52,10 @@ Phase 1: Foundation
 
 ## Commands
 
-- /specflow.init: Initialize project
-- /specflow.ingest: Import BRD/PRD
-- /specflow.specify: Generate specification
-- /specflow.implement: Execute implementation
+- /claudecraft.init: Initialize project
+- /claudecraft.ingest: Import BRD/PRD
+- /claudecraft.specify: Generate specification
+- /claudecraft.implement: Execute implementation
 ```
 
 ---
@@ -64,9 +64,9 @@ Phase 1: Foundation
 
 ```markdown
 ---
-name: specflow-architect
+name: claudecraft-architect
 description: |
-  Senior software architect for SpecFlow. MUST BE USED PROACTIVELY for:
+  Senior software architect for ClaudeCraft. MUST BE USED PROACTIVELY for:
   - Analyzing existing codebase structure and patterns
   - Creating technical implementation plans from specifications
   - Making technology and architecture decisions
@@ -76,11 +76,11 @@ description: |
   Invoke immediately when specs are approved or when architectural decisions needed.
 model: opus
 tools: Read, Grep, Glob, Bash, WebSearch
-skills: specflow
+skills: claudecraft
 permissionMode: default
 ---
 
-You are a senior software architect working on SpecFlow.
+You are a senior software architect working on ClaudeCraft.
 
 ## Your Role
 
@@ -118,19 +118,19 @@ Always produce structured markdown documents:
 
 ```markdown
 ---
-name: specflow-coder
+name: claudecraft-coder
 description: |
-  Implementation engineer for SpecFlow. Executes tasks from tasks.md.
+  Implementation engineer for ClaudeCraft. Executes tasks from tasks.md.
   Writes clean, tested, documented code following constitution.md and plan.md.
   Works ONLY in isolated git worktrees, never directly on main branch.
   Creates implementation that passes review and tests.
 model: sonnet
 tools: Read, Write, Edit, Bash, Grep, Glob
-skills: specflow
+skills: claudecraft
 permissionMode: default
 ---
 
-You are an implementation engineer working on SpecFlow.
+You are an implementation engineer working on ClaudeCraft.
 
 ## Your Role
 
@@ -180,9 +180,9 @@ Format: `feat(component): description`
 
 ```markdown
 ---
-name: specflow-reviewer
+name: claudecraft-reviewer
 description: |
-  Code reviewer for SpecFlow. Reviews ALL code changes before they can proceed.
+  Code reviewer for ClaudeCraft. Reviews ALL code changes before they can proceed.
   Validates against functional requirements (spec.md), technical decisions (plan.md),
   and project standards (constitution.md). Returns structured feedback.
 model: sonnet
@@ -190,7 +190,7 @@ tools: Read, Grep, Glob, Bash
 permissionMode: default
 ---
 
-You are a code reviewer for SpecFlow.
+You are a code reviewer for ClaudeCraft.
 
 ## Your Role
 
@@ -245,9 +245,9 @@ You are a code reviewer for SpecFlow.
 
 ````markdown
 ---
-name: specflow-tester
+name: claudecraft-tester
 description: |
-  Test engineer for SpecFlow. Creates and runs comprehensive tests:
+  Test engineer for ClaudeCraft. Creates and runs comprehensive tests:
   - Unit tests for all new functions and methods
   - Integration tests for APIs and data flows
   - End-to-end tests for user-facing features
@@ -257,7 +257,7 @@ tools: Read, Write, Edit, Bash, Grep
 permissionMode: default
 ---
 
-You are a test engineer for SpecFlow.
+You are a test engineer for ClaudeCraft.
 
 ## Your Role
 
@@ -324,9 +324,9 @@ def test_{function}_{scenario}():
 
 ```markdown
 ---
-name: specflow-qa
+name: claudecraft-qa
 description: |
-  Quality assurance engineer for SpecFlow. Final validation gate:
+  Quality assurance engineer for ClaudeCraft. Final validation gate:
   - Verify all tests pass
   - Verify code review approved
   - Verify acceptance criteria from spec.md are met
@@ -337,7 +337,7 @@ tools: Read, Bash, Grep, Glob
 permissionMode: default
 ---
 
-You are a QA engineer for SpecFlow.
+You are a QA engineer for ClaudeCraft.
 
 ## Your Role
 - Final validation before task completion
@@ -390,20 +390,20 @@ You are a QA engineer for SpecFlow.
 
 ---
 
-## .claude/commands/specflow.init.md
+## .claude/commands/claudecraft.init.md
 
 ```markdown
 ---
-name: specflow.init
-description: Initialize a new SpecFlow project in current directory
+name: claudecraft.init
+description: Initialize a new ClaudeCraft project in current directory
 ---
 
-Initialize SpecFlow in this project.
+Initialize ClaudeCraft in this project.
 
 ## Steps
 
 1. Create directory structure:
-   - .specflow/
+   - .claudecraft/
    - specs/
    - .claude/agents/
    - .claude/commands/
@@ -411,18 +411,18 @@ Initialize SpecFlow in this project.
    - .claude/hooks/
 
 2. Create configuration files:
-   - .specflow/config.yaml with defaults
-   - .specflow/constitution.md template
+   - .claudecraft/config.yaml with defaults
+   - .claudecraft/constitution.md template
 
 3. Initialize SQLite database:
-   - .specflow/specflow.db
+   - .claudecraft/claudecraft.db
 
 4. Copy agent definitions (if not present)
 
 5. Add to .gitignore:
    - .worktrees/
-   - .specflow/_.db-_
-   - .specflow/memory/
+   - .claudecraft/_.db-_
+   - .claudecraft/memory/
 
 6. Create initial CLAUDE.md if not exists
 
@@ -431,11 +431,11 @@ Report what was created and next steps.
 
 ---
 
-## .claude/commands/specflow.ingest.md
+## .claude/commands/claudecraft.ingest.md
 
 ```markdown
 ---
-name: specflow.ingest
+name: claudecraft.ingest
 description: Ingest a BRD or PRD document to start specification process
 ---
 
@@ -453,7 +453,7 @@ $ARGUMENTS - Path to BRD or PRD markdown file
 4. Extract key requirements and user stories
 5. Generate clarifying questions using SpecKit
 6. Present questions to user for answers
-7. After answers, invoke /specflow.specify
+7. After answers, invoke /claudecraft.specify
 
 ## Output
 
@@ -466,11 +466,11 @@ This is a HUMAN INTERACTION point - wait for answers before proceeding.
 
 ---
 
-## .claude/commands/specflow.specify.md
+## .claude/commands/claudecraft.specify.md
 
 ```markdown
 ---
-name: specflow.specify
+name: claudecraft.specify
 description: Generate specification from requirements and clarifications
 ---
 
@@ -512,11 +512,11 @@ Do not proceed to implementation without explicit approval.
 
 ---
 
-## .claude/commands/specflow.implement.md
+## .claude/commands/claudecraft.implement.md
 
 ```markdown
 ---
-name: specflow.implement
+name: claudecraft.implement
 description: Execute autonomous implementation of approved specification
 ---
 
@@ -542,10 +542,10 @@ $ARGUMENTS - Spec ID to implement
    a. Assign to available agent
    b. Create worktree: .worktrees/{task-id}
    c. Execute pipeline:
-   - @specflow-coder: Implement
-   - @specflow-reviewer: Review
-   - @specflow-tester: Test
-   - @specflow-qa: Validate
+   - @claudecraft-coder: Implement
+   - @claudecraft-reviewer: Review
+   - @claudecraft-tester: Test
+   - @claudecraft-qa: Validate
      d. Loop until QA approves (max 10 iterations)
      e. Mark task complete
      f. Check for newly unblocked tasks
@@ -564,13 +564,13 @@ Progress streamed to TUI.
 
 ---
 
-## .claude/skills/specflow/SKILL.md
+## .claude/skills/claudecraft/SKILL.md
 
 ```markdown
 ---
-name: specflow
+name: claudecraft
 description: |
-  Spec-driven development workflow skill for SpecFlow project.
+  Spec-driven development workflow skill for ClaudeCraft project.
   Auto-loads when working on specifications, plans, tasks, or implementation.
 triggers:
   - "spec"
@@ -580,15 +580,15 @@ triggers:
   - "requirement"
   - "implementation plan"
   - "task breakdown"
-  - "specflow"
+  - "claudecraft"
 ---
 
-# SpecFlow Workflow Context
+# ClaudeCraft Workflow Context
 
 ## Project Structure
 ```
 
-.specflow/ # Configuration and database
+.claudecraft/ # Configuration and database
 specs/{id}/ # Specification documents
 ├── brd.md # Source BRD (if ingested)
 ├── prd.md # Source PRD (if ingested)
@@ -625,13 +625,13 @@ specs/{id}/ # Specification documents
 - SpecKit for spec workflow
 
 ## Available Commands
-- `/specflow.init` - Initialize project
-- `/specflow.ingest` - Import BRD/PRD
-- `/specflow.specify` - Generate specification
-- `/specflow.plan` - Create technical plan
-- `/specflow.tasks` - Generate task breakdown
-- `/specflow.implement` - Execute autonomous implementation
-- `/specflow.qa` - Run QA validation
+- `/claudecraft.init` - Initialize project
+- `/claudecraft.ingest` - Import BRD/PRD
+- `/claudecraft.specify` - Generate specification
+- `/claudecraft.plan` - Create technical plan
+- `/claudecraft.tasks` - Generate task breakdown
+- `/claudecraft.implement` - Execute autonomous implementation
+- `/claudecraft.qa` - Run QA validation
 ```
 
 ---
@@ -667,28 +667,28 @@ specs/{id}/ # Specification documents
 
 ## Bootstrap Script
 
-Save as `bootstrap-specflow.sh`:
+Save as `bootstrap-claudecraft.sh`:
 
 ```bash
 #!/bin/bash
 set -e
 
-echo "🚀 Bootstrapping SpecFlow..."
+echo "🚀 Bootstrapping ClaudeCraft..."
 
 # Create project directory
-mkdir -p specflow
-cd specflow
+mkdir -p claudecraft
+cd claudecraft
 
 # Initialize git
 git init
 
 # Create directory structure
-mkdir -p .specflow specs .claude/{agents,commands,skills/specflow,hooks}
+mkdir -p .claudecraft specs .claude/{agents,commands,skills/claudecraft,hooks}
 
 # Initialize Python project with uv
 cat > pyproject.toml << 'EOF'
 [project]
-name = "specflow"
+name = "claudecraft"
 version = "0.1.0"
 description = "TUI-based spec-driven development orchestrator"
 readme = "README.md"
@@ -711,7 +711,7 @@ dev = [
 ]
 
 [project.scripts]
-specflow = "specflow.cli:main"
+claudecraft = "claudecraft.cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -719,14 +719,14 @@ build-backend = "hatchling.build"
 EOF
 
 # Create source directory
-mkdir -p src/specflow
-touch src/specflow/__init__.py
+mkdir -p src/claudecraft
+touch src/claudecraft/__init__.py
 
 # Create .gitignore
 cat > .gitignore << 'EOF'
 .worktrees/
-.specflow/*.db-*
-.specflow/memory/
+.claudecraft/*.db-*
+.claudecraft/memory/
 __pycache__/
 *.pyc
 .venv/
@@ -740,7 +740,7 @@ uv tool install specify-cli --from git+https://github.com/github/spec-kit.git ||
 
 # Create initial CLAUDE.md
 cat > CLAUDE.md << 'EOF'
-# SpecFlow Project
+# ClaudeCraft Project
 
 ## Overview
 TUI-based spec-driven development orchestrator.
@@ -755,16 +755,16 @@ TUI-based spec-driven development orchestrator.
 Bootstrapping - ready for implementation
 
 ## Next Steps
-Run `/specflow.implement` to begin autonomous development
+Run `/claudecraft.implement` to begin autonomous development
 EOF
 
-echo "✅ SpecFlow bootstrapped!"
+echo "✅ ClaudeCraft bootstrapped!"
 echo ""
 echo "Next steps:"
-echo "1. cd specflow"
+echo "1. cd claudecraft"
 echo "2. Copy agent/command/skill files from setup"
 echo "3. Run: claude"
-echo "4. Execute: /specflow.implement specflow"
+echo "4. Execute: /claudecraft.implement claudecraft"
 ```
 
 ---
@@ -774,7 +774,7 @@ echo "4. Execute: /specflow.implement specflow"
 Use this prompt to start autonomous implementation with Claude Code:
 
 ```
-I want you to implement SpecFlow, a TUI-based spec-driven development orchestrator.
+I want you to implement ClaudeCraft, a TUI-based spec-driven development orchestrator.
 
 The complete specification is available in the conversation history above.
 

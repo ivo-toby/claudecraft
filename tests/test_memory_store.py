@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from datetime import datetime, timedelta
 
-from specflow.memory.store import MemoryStore, Entity
+from claudecraft.memory.store import MemoryStore, Entity
 
 
 @pytest.fixture

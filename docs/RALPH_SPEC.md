@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document specifies the integration of Ralph-style self-assessment loops into SpecFlow's execution pipeline. The goal is to enable agents to iteratively refine their work until genuinely complete, rather than relying on single-pass execution with fixed retry limits.
+This document specifies the integration of Ralph-style self-assessment loops into ClaudeCraft's execution pipeline. The goal is to enable agents to iteratively refine their work until genuinely complete, rather than relying on single-pass execution with fixed retry limits.
 
 **Key Innovation**: Completion criteria are defined at task creation time, not at execution time. Each task specifies measurable outcomes and per-agent completion requirements, making the Ralph loop deterministic and verifiable.
 
@@ -29,7 +29,7 @@ This document specifies the integration of Ralph-style self-assessment loops int
 ### Data Structures
 
 ```python
-# src/specflow/core/database.py
+# src/claudecraft/core/database.py
 
 from enum import Enum
 from dataclasses import dataclass, field
@@ -119,7 +119,7 @@ class TaskCompletionSpec:
 ```python
 @dataclass
 class Task:
-    """A task in the SpecFlow system."""
+    """A task in the ClaudeCraft system."""
     id: str
     spec_id: str
     title: str
@@ -411,12 +411,12 @@ CREATE INDEX idx_task_agent_criteria_agent ON task_agent_criteria(agent_type);
 
 ## Task Creation Integration
 
-### CLI: `specflow task-create`
+### CLI: `claudecraft task-create`
 
 Update to require completion criteria:
 
 ```bash
-specflow task-create TASK-001 my-spec "Implement JWT auth" \
+claudecraft task-create TASK-001 my-spec "Implement JWT auth" \
     --outcome "All API endpoints require valid JWT tokens" \
     --acceptance "JWT middleware validates tokens" \
     --acceptance "Login endpoint returns valid JWT" \
@@ -429,7 +429,7 @@ specflow task-create TASK-001 my-spec "Implement JWT auth" \
     --tester-verify-cmd "pytest tests/test_auth.py --cov-fail-under=80"
 ```
 
-### Slash Command: `/specflow.tasks`
+### Slash Command: `/claudecraft.tasks`
 
 Update the task generation prompt to require completion criteria:
 
@@ -507,7 +507,7 @@ IMPORTANT: Tasks without completion criteria will fail during Ralph loop executi
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                         SpecFlow Execution                                │
+│                         ClaudeCraft Execution                                │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  Task (with CompletionSpec)                                              │
@@ -554,7 +554,7 @@ IMPORTANT: Tasks without completion criteria will fail during Ralph loop executi
 #### 1. RalphLoop Class
 
 ```python
-# src/specflow/orchestration/ralph.py
+# src/claudecraft/orchestration/ralph.py
 
 @dataclass
 class RalphLoopConfig:
@@ -664,7 +664,7 @@ class RalphLoop:
 #### 2. Promise Verifier
 
 ```python
-# src/specflow/orchestration/ralph.py
+# src/claudecraft/orchestration/ralph.py
 
 class PromiseVerifier:
     """Verifies completion promises using configured method."""
@@ -969,7 +969,7 @@ The loop will continue until genuine completion or iteration {state.max_iteratio
 - None (extend existing)
 
 **Files to modify:**
-- `src/specflow/core/database.py` - Add CompletionCriteria, TaskCompletionSpec, update Task
+- `src/claudecraft/core/database.py` - Add CompletionCriteria, TaskCompletionSpec, update Task
 
 **Tasks:**
 1. Add `VerificationMethod` enum
@@ -983,7 +983,7 @@ The loop will continue until genuine completion or iteration {state.max_iteratio
 ### Phase 2: Verification System
 
 **Files to create:**
-- `src/specflow/orchestration/ralph.py`
+- `src/claudecraft/orchestration/ralph.py`
 
 **Tasks:**
 1. Implement `PromiseVerifier` class
@@ -996,8 +996,8 @@ The loop will continue until genuine completion or iteration {state.max_iteratio
 ### Phase 3: Ralph Loop Core
 
 **Files to modify:**
-- `src/specflow/orchestration/ralph.py`
-- `src/specflow/core/config.py`
+- `src/claudecraft/orchestration/ralph.py`
+- `src/claudecraft/core/config.py`
 
 **Tasks:**
 1. Implement `RalphLoopConfig` and `RalphLoopState`
@@ -1008,7 +1008,7 @@ The loop will continue until genuine completion or iteration {state.max_iteratio
 ### Phase 4: Execution Integration
 
 **Files to modify:**
-- `src/specflow/orchestration/execution.py`
+- `src/claudecraft/orchestration/execution.py`
 
 **Tasks:**
 1. Add `_get_completion_criteria()` method
@@ -1020,20 +1020,20 @@ The loop will continue until genuine completion or iteration {state.max_iteratio
 ### Phase 5: Task Creation Integration
 
 **Files to modify:**
-- `src/specflow/cli.py`
-- `.claude/commands/specflow.tasks.md`
+- `src/claudecraft/cli.py`
+- `.claude/commands/claudecraft.tasks.md`
 
 **Tasks:**
 1. Update `task-create` CLI with completion options
-2. Update `/specflow.tasks` command prompt
+2. Update `/claudecraft.tasks` command prompt
 3. Validate completion criteria on task creation
 4. Add completion criteria to task-followup
 
 ### Phase 6: CLI & TUI
 
 **Tasks:**
-1. Add `specflow ralph-status` command
-2. Add `specflow ralph-cancel` command
+1. Add `claudecraft ralph-status` command
+2. Add `claudecraft ralph-cancel` command
 3. Update swimlanes to show iteration count
 4. Update agent panel with Ralph status
 5. Add completion criteria display to task detail modal

@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from specflow.core.database import (
+from claudecraft.core.database import (
     CompletionCriteria,
     TaskCompletionSpec,
     VerificationMethod,
 )
-from specflow.orchestration.ralph import (
+from claudecraft.orchestration.ralph import (
     PromiseVerifier,
     VerificationResult,
     verify_task_completion,
@@ -662,8 +662,8 @@ class TestVerificationDuration:
 from datetime import datetime
 from time import sleep
 
-from specflow.core.database import Task, TaskStatus
-from specflow.orchestration.ralph import (
+from claudecraft.core.database import Task, TaskStatus
+from claudecraft.orchestration.ralph import (
     RalphLoop,
     RalphLoopConfig,
     RalphLoopState,
@@ -1223,7 +1223,7 @@ class TestRalphConfig:
 
     def test_ralph_config_in_default_config(self):
         """Test that ralph config is in DEFAULT_CONFIG."""
-        from specflow.core.config import DEFAULT_CONFIG
+        from claudecraft.core.config import DEFAULT_CONFIG
 
         assert "ralph" in DEFAULT_CONFIG
         assert DEFAULT_CONFIG["ralph"]["enabled"] is True
@@ -1233,7 +1233,7 @@ class TestRalphConfig:
 
     def test_ralph_config_agent_defaults(self):
         """Test agent defaults in DEFAULT_CONFIG."""
-        from specflow.core.config import DEFAULT_CONFIG
+        from claudecraft.core.config import DEFAULT_CONFIG
 
         agent_defaults = DEFAULT_CONFIG["ralph"]["agent_defaults"]
         assert agent_defaults["coder"]["max_iterations"] == 15
@@ -1243,7 +1243,7 @@ class TestRalphConfig:
 
     def test_ralph_config_dataclass(self):
         """Test RalphConfig dataclass."""
-        from specflow.core.config import RalphConfig
+        from claudecraft.core.config import RalphConfig
 
         config = RalphConfig(
             enabled=False,
@@ -1259,7 +1259,7 @@ class TestRalphConfig:
 
     def test_ralph_config_to_dict(self):
         """Test RalphConfig to_dict method."""
-        from specflow.core.config import RalphConfig
+        from claudecraft.core.config import RalphConfig
 
         config = RalphConfig(
             enabled=True,

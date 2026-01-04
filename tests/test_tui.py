@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from specflow.core.database import Spec, SpecStatus, Task, TaskStatus
+from claudecraft.core.database import Spec, SpecStatus, Task, TaskStatus
 
 
 class TestTUIApp:
@@ -13,17 +13,17 @@ class TestTUIApp:
 
     def test_app_creation(self, temp_project):
         """Test TUI app can be created."""
-        from specflow.tui.app import SpecFlowApp
+        from claudecraft.tui.app import ClaudeCraftApp
 
-        app = SpecFlowApp(temp_project.root)
+        app = ClaudeCraftApp(temp_project.root)
         assert app is not None
-        assert app.title == "SpecFlow - Spec-Driven Development Orchestrator"
+        assert app.title == "ClaudeCraft - Spec-Driven Development Orchestrator"
 
     def test_app_without_project(self):
         """Test TUI app without a project."""
-        from specflow.tui.app import SpecFlowApp
+        from claudecraft.tui.app import ClaudeCraftApp
 
-        app = SpecFlowApp()
+        app = ClaudeCraftApp()
         assert app is not None
 
 
@@ -32,14 +32,14 @@ class TestSpecsPanel:
 
     def test_specs_panel_creation(self):
         """Test specs panel can be created."""
-        from specflow.tui.widgets.specs import SpecsPanel
+        from claudecraft.tui.widgets.specs import SpecsPanel
 
         panel = SpecsPanel()
         assert panel is not None
 
     def test_status_icon(self):
         """Test status icon mapping."""
-        from specflow.tui.widgets.specs import SpecsPanel
+        from claudecraft.tui.widgets.specs import SpecsPanel
 
         panel = SpecsPanel()
 
@@ -53,14 +53,14 @@ class TestAgentsPanel:
 
     def test_agents_panel_creation(self):
         """Test agents panel can be created."""
-        from specflow.tui.widgets.agents import AgentsPanel
+        from claudecraft.tui.widgets.agents import AgentsPanel
 
         panel = AgentsPanel()
         assert panel is not None
 
     def test_agent_slot_creation(self):
         """Test agent slot can be created."""
-        from specflow.tui.widgets.agents import AgentSlot
+        from claudecraft.tui.widgets.agents import AgentSlot
 
         slot = AgentSlot(1)
         assert slot is not None
@@ -69,7 +69,7 @@ class TestAgentsPanel:
 
     def test_agent_slot_assign_task(self):
         """Test assigning a task to agent slot."""
-        from specflow.tui.widgets.agents import AgentSlot
+        from claudecraft.tui.widgets.agents import AgentSlot
 
         slot = AgentSlot(1)
         slot.assign_task("task-001", "coder")
@@ -80,7 +80,7 @@ class TestAgentsPanel:
 
     def test_agent_slot_complete_task(self):
         """Test completing a task."""
-        from specflow.tui.widgets.agents import AgentSlot
+        from claudecraft.tui.widgets.agents import AgentSlot
 
         slot = AgentSlot(1)
         slot.assign_task("task-001", "coder")
@@ -96,7 +96,7 @@ class TestSpecEditor:
 
     def test_spec_editor_creation(self):
         """Test spec editor can be created."""
-        from specflow.tui.widgets.spec_editor import SpecEditor
+        from claudecraft.tui.widgets.spec_editor import SpecEditor
 
         editor = SpecEditor()
         assert editor is not None
@@ -108,7 +108,7 @@ class TestDependencyGraph:
 
     def test_dependency_graph_creation(self):
         """Test dependency graph can be created."""
-        from specflow.tui.widgets.dependency_graph import DependencyGraph
+        from claudecraft.tui.widgets.dependency_graph import DependencyGraph
 
         graph = DependencyGraph()
         assert graph is not None
@@ -116,7 +116,7 @@ class TestDependencyGraph:
 
     def test_status_icon(self):
         """Test status icon mapping."""
-        from specflow.tui.widgets.dependency_graph import DependencyGraph
+        from claudecraft.tui.widgets.dependency_graph import DependencyGraph
 
         graph = DependencyGraph()
 
@@ -126,7 +126,7 @@ class TestDependencyGraph:
 
     def test_status_class(self):
         """Test status class mapping."""
-        from specflow.tui.widgets.dependency_graph import DependencyGraph
+        from claudecraft.tui.widgets.dependency_graph import DependencyGraph
 
         graph = DependencyGraph()
 
@@ -141,7 +141,7 @@ class TestTUIIntegration:
 
     def test_run_tui_function(self):
         """Test run_tui function exists."""
-        from specflow.tui.app import run_tui
+        from claudecraft.tui.app import run_tui
 
         assert run_tui is not None
         assert callable(run_tui)

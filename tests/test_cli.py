@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from specflow.cli import (
+from claudecraft.cli import (
     main,
     cmd_init,
     cmd_status,
@@ -45,7 +45,7 @@ from specflow.cli import (
     _parse_completion_spec_from_dict,
     _validate_completion_criteria,
 )
-from specflow.core.database import (
+from claudecraft.core.database import (
     ActiveRalphLoop,
     CompletionCriteria,
     Spec,
@@ -55,7 +55,7 @@ from specflow.core.database import (
     TaskStatus,
     VerificationMethod,
 )
-from specflow.core.project import Project
+from claudecraft.core.project import Project
 
 
 @pytest.fixture
@@ -146,8 +146,8 @@ class TestCmdInit:
         result = cmd_init(new_dir, update=False, json_output=False)
 
         assert result == 0
-        assert (new_dir / ".specflow").exists()
-        assert (new_dir / ".specflow" / "config.yaml").exists()
+        assert (new_dir / ".claudecraft").exists()
+        assert (new_dir / ".claudecraft" / "config.yaml").exists()
 
     def test_init_json_output(self, temp_dir, monkeypatch):
         """Test init with JSON output."""
@@ -766,7 +766,7 @@ def cli_project_with_git(temp_dir, monkeypatch):
     repo.index.add([str(readme)])
     repo.index.commit("Initial commit")
 
-    # Now initialize SpecFlow project
+    # Now initialize ClaudeCraft project
     project = Project.init(temp_dir)
     monkeypatch.chdir(temp_dir)
     yield project
@@ -797,7 +797,7 @@ class TestCmdTui:
 
     def test_tui_import_error(self, cli_project):
         """Test TUI when textual import fails."""
-        with patch("specflow.cli.cmd_tui") as mock_tui:
+        with patch("claudecraft.cli.cmd_tui") as mock_tui:
             mock_tui.return_value = 1
             # This tests that the function handles the case gracefully
             result = mock_tui(Path.cwd())
@@ -809,34 +809,34 @@ class TestMain:
 
     def test_main_no_args(self, cli_project):
         """Test main with no arguments (should launch TUI)."""
-        with patch("specflow.cli.cmd_tui") as mock_tui:
+        with patch("claudecraft.cli.cmd_tui") as mock_tui:
             mock_tui.return_value = 0
-            with patch("sys.argv", ["specflow"]):
+            with patch("sys.argv", ["claudecraft"]):
                 result = main()
             # Without args, it tries to launch TUI
             assert mock_tui.called or result in (0, 1)
 
     def test_main_status(self, cli_project):
         """Test main with status command."""
-        with patch("sys.argv", ["specflow", "status"]):
+        with patch("sys.argv", ["claudecraft", "status"]):
             result = main()
         assert result == 0
 
     def test_main_list_specs(self, cli_project_with_data):
         """Test main with list-specs command."""
-        with patch("sys.argv", ["specflow", "list-specs"]):
+        with patch("sys.argv", ["claudecraft", "list-specs"]):
             result = main()
         assert result == 0
 
     def test_main_list_tasks(self, cli_project_with_data):
         """Test main with list-tasks command."""
-        with patch("sys.argv", ["specflow", "list-tasks"]):
+        with patch("sys.argv", ["claudecraft", "list-tasks"]):
             result = main()
         assert result == 0
 
     def test_main_json_flag(self, cli_project_with_data):
         """Test main with --json flag."""
-        with patch("sys.argv", ["specflow", "--json", "status"]):
+        with patch("sys.argv", ["claudecraft", "--json", "status"]):
             with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                 result = main()
                 output = json.loads(mock_stdout.getvalue())
@@ -845,14 +845,14 @@ class TestMain:
 
     def test_main_spec_create(self, cli_project):
         """Test main with spec-create command."""
-        with patch("sys.argv", ["specflow", "spec-create", "test-spec", "--title", "Test"]):
+        with patch("sys.argv", ["claudecraft", "spec-create", "test-spec", "--title", "Test"]):
             result = main()
         assert result == 0
 
     def test_main_task_create(self, cli_project_with_data):
         """Test main with task-create command."""
         with patch("sys.argv", [
-            "specflow", "task-create", "TASK-NEW", "test-spec-1", "New Task",
+            "claudecraft", "task-create", "TASK-NEW", "test-spec-1", "New Task",
             "--priority", "1"
         ]):
             result = main()
@@ -860,27 +860,27 @@ class TestMain:
 
     def test_main_task_update(self, cli_project_with_data):
         """Test main with task-update command."""
-        with patch("sys.argv", ["specflow", "task-update", "TASK-001", "implementing"]):
+        with patch("sys.argv", ["claudecraft", "task-update", "TASK-001", "implementing"]):
             result = main()
         assert result == 0
 
     def test_main_memory_commands(self, cli_project):
         """Test main with memory commands."""
-        with patch("sys.argv", ["specflow", "memory-stats"]):
+        with patch("sys.argv", ["claudecraft", "memory-stats"]):
             result = main()
         assert result == 0
 
-        with patch("sys.argv", ["specflow", "memory-list"]):
+        with patch("sys.argv", ["claudecraft", "memory-list"]):
             result = main()
         assert result == 0
 
     def test_main_sync_commands(self, cli_project_with_data):
         """Test main with sync commands."""
-        with patch("sys.argv", ["specflow", "sync-export"]):
+        with patch("sys.argv", ["claudecraft", "sync-export"]):
             result = main()
         assert result == 0
 
-        with patch("sys.argv", ["specflow", "sync-status"]):
+        with patch("sys.argv", ["claudecraft", "sync-status"]):
             result = main()
         assert result == 0
 
@@ -1496,7 +1496,7 @@ class TestMainWithCompletionOptions:
     def test_main_task_create_with_completion(self, cli_project_with_data):
         """Test main with task-create and completion options."""
         with patch("sys.argv", [
-            "specflow", "task-create", "TASK-CLI-COMP", "test-spec-1", "CLI completion task",
+            "claudecraft", "task-create", "TASK-CLI-COMP", "test-spec-1", "CLI completion task",
             "--outcome", "Task done via CLI",
             "--acceptance-criteria", "Criterion 1",
             "--acceptance-criteria", "Criterion 2",
@@ -1518,7 +1518,7 @@ class TestMainWithCompletionOptions:
     def test_main_task_create_with_tester_command(self, cli_project_with_data):
         """Test main with tester command option."""
         with patch("sys.argv", [
-            "specflow", "task-create", "TASK-TESTER", "test-spec-1", "Tester task",
+            "claudecraft", "task-create", "TASK-TESTER", "test-spec-1", "Tester task",
             "--tester-command", "pytest tests/",
             "--tester-verification", "external",
         ]):
@@ -1534,7 +1534,7 @@ class TestMainWithCompletionOptions:
     def test_main_task_followup_with_completion(self, cli_project_with_data):
         """Test main with task-followup and completion options."""
         with patch("sys.argv", [
-            "specflow", "task-followup", "DOC-CLI", "test-spec-1", "Documentation followup",
+            "claudecraft", "task-followup", "DOC-CLI", "test-spec-1", "Documentation followup",
             "--outcome", "Docs complete",
             "--coder-promise", "DOCS_WRITTEN",
         ]):
@@ -1792,7 +1792,7 @@ class TestMainWithRalphCommands:
 
     def test_main_ralph_status(self, cli_project):
         """Test main with ralph-status command."""
-        with patch("sys.argv", ["specflow", "ralph-status", "--json"]):
+        with patch("sys.argv", ["claudecraft", "ralph-status", "--json"]):
             with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                 result = main()
                 output = json.loads(mock_stdout.getvalue())
@@ -1805,7 +1805,7 @@ class TestMainWithRalphCommands:
         # Register a loop first
         cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
 
-        with patch("sys.argv", ["specflow", "ralph-cancel", "TASK-001", "--json"]):
+        with patch("sys.argv", ["claudecraft", "ralph-cancel", "TASK-001", "--json"]):
             with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                 result = main()
                 output = json.loads(mock_stdout.getvalue())

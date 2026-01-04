@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from git import Repo
 
-from specflow.orchestration.merge import (
+from claudecraft.orchestration.merge import (
     MergeOrchestrator,
     MergeStrategy,
     GitAutoMerge,

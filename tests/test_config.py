@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from specflow.core.config import Config, DEFAULT_CONFIG, find_project_root, _deep_merge
+from claudecraft.core.config import Config, DEFAULT_CONFIG, find_project_root, _deep_merge
 
 
 class TestDeepMerge:
@@ -36,8 +36,8 @@ class TestFindProjectRoot:
     """Tests for find_project_root function."""
 
     def test_finds_project_root(self, temp_dir):
-        """Test finding project root when .specflow exists."""
-        (temp_dir / ".specflow").mkdir()
+        """Test finding project root when .claudecraft exists."""
+        (temp_dir / ".claudecraft").mkdir()
         nested = temp_dir / "src" / "deep" / "nested"
         nested.mkdir(parents=True)
 
@@ -45,7 +45,7 @@ class TestFindProjectRoot:
         assert root == temp_dir
 
     def test_returns_none_when_not_found(self, temp_dir):
-        """Test returning None when no .specflow directory exists."""
+        """Test returning None when no .claudecraft directory exists."""
         nested = temp_dir / "src" / "deep"
         nested.mkdir(parents=True)
 
@@ -58,7 +58,7 @@ class TestConfig:
 
     def test_create_default(self, temp_dir):
         """Test creating default configuration."""
-        config_path = temp_dir / ".specflow" / "config.yaml"
+        config_path = temp_dir / ".claudecraft" / "config.yaml"
         config = Config.create_default(config_path, "my-project")
 
         assert config.project_name == "my-project"

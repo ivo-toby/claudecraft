@@ -1,14 +1,14 @@
 [project]
-name = "specflow"
+name = "claudecraft"
 version = "0.1.0"
-description = "TUI-based spec-driven development orchestrator"
+description = "TUI-based spec-driven development orchestrator for Claude"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
 authors = [
-    { name = "SpecFlow Team" }
+    { name = "ClaudeCraft Team" }
 ]
-keywords = ["spec-driven", "development", "tui", "automation", "claude"]
+keywords = ["spec-driven", "development", "tui", "automation", "claude", "ai-agents"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -35,20 +35,20 @@ dev = [
 ]
 
 [project.scripts]
-specflow = "specflow.cli:main"
+claudecraft = "claudecraft.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/specflow"]
+packages = ["src/claudecraft"]
 
 [tool.hatch.build.targets.wheel.force-include]
-".claude" = "specflow/templates"
+".claude" = "claudecraft/templates"
 
 [tool.hatch.build.targets.sdist.force-include]
-".claude" = "specflow/templates"
+".claude" = "claudecraft/templates"
 
 [tool.ruff]
 line-length = 100

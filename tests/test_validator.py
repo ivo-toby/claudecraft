@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from specflow.ingestion.ingest import Ingestor
-from specflow.ingestion.validator import SpecValidator, ValidationResult
+from claudecraft.ingestion.ingest import Ingestor
+from claudecraft.ingestion.validator import SpecValidator, ValidationResult
 
 
 class TestValidationResult:
@@ -216,7 +216,7 @@ Some requirements [TODO]
 
     def test_validate_no_source(self, temp_project):
         """Test validation without source document."""
-        from specflow.core.database import Spec, SpecStatus
+        from claudecraft.core.database import Spec, SpecStatus
         from datetime import datetime
 
         # Create spec without source

@@ -173,11 +173,11 @@ Output: <promise>COMPLETE</promise>
 
 ---
 
-## Relevance to SpecFlow
+## Relevance to ClaudeCraft
 
 ### Current Gap
 
-SpecFlow's execution pipeline runs agents through stages (Coder → Reviewer → Tester → QA) but each stage:
+ClaudeCraft's execution pipeline runs agents through stages (Coder → Reviewer → Tester → QA) but each stage:
 - Runs once per iteration
 - Has fixed retry limits
 - Doesn't self-assess completion quality
@@ -185,7 +185,7 @@ SpecFlow's execution pipeline runs agents through stages (Coder → Reviewer →
 
 ### Opportunity
 
-Ralph-style loops could enhance SpecFlow by:
+Ralph-style loops could enhance ClaudeCraft by:
 
 1. **Agent Self-Assessment** - Each agent validates its own work before proceeding
 2. **Iterative Refinement** - Agents continue until genuinely complete, not just "done"
@@ -194,7 +194,7 @@ Ralph-style loops could enhance SpecFlow by:
 
 ### Integration Points
 
-| SpecFlow Component | Ralph Integration Opportunity |
+| ClaudeCraft Component | Ralph Integration Opportunity |
 |--------------------|------------------------------|
 | ExecutionPipeline | Wrap each stage in a Ralph-style loop |
 | Stop Hook | Use for agent self-assessment |
@@ -216,7 +216,7 @@ Ralph-style loops could enhance SpecFlow by:
 
 ### State Management
 
-The plugin uses a markdown file with YAML frontmatter. SpecFlow could:
+The plugin uses a markdown file with YAML frontmatter. ClaudeCraft could:
 - Use the existing SQLite database for state
 - Store loop state in task metadata
 - Create dedicated loop tracking tables

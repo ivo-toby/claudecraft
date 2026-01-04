@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from specflow.core.database import SpecStatus
-from specflow.ingestion.ingest import Ingestor
+from claudecraft.core.database import SpecStatus
+from claudecraft.ingestion.ingest import Ingestor
 
 
 class TestIngestor:

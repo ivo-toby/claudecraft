@@ -6,10 +6,10 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
-from specflow.core.database import Task, TaskStatus, Spec, SpecStatus
-from specflow.core.project import Project
-from specflow.orchestration.agent_pool import AgentPool, AgentType
-from specflow.orchestration.execution import (
+from claudecraft.core.database import Task, TaskStatus, Spec, SpecStatus
+from claudecraft.core.project import Project
+from claudecraft.orchestration.agent_pool import AgentPool, AgentType
+from claudecraft.orchestration.execution import (
     ExecutionPipeline,
     PipelineStage,
     ExecutionResult,
@@ -40,7 +40,7 @@ def pipeline(project, agent_pool):
 def sample_task(project):
     """Create a sample task."""
     # Create spec first (required for foreign key)
-    from specflow.core.database import Spec, SpecStatus
+    from claudecraft.core.database import Spec, SpecStatus
 
     spec = Spec(
         id="spec-1",
@@ -239,11 +239,11 @@ class TestAgentConstants:
 
     def test_agent_type_to_name(self):
         """Test agent type to name mapping."""
-        assert AGENT_TYPE_TO_NAME[AgentType.ARCHITECT] == "specflow-architect"
-        assert AGENT_TYPE_TO_NAME[AgentType.CODER] == "specflow-coder"
-        assert AGENT_TYPE_TO_NAME[AgentType.REVIEWER] == "specflow-reviewer"
-        assert AGENT_TYPE_TO_NAME[AgentType.TESTER] == "specflow-tester"
-        assert AGENT_TYPE_TO_NAME[AgentType.QA] == "specflow-qa"
+        assert AGENT_TYPE_TO_NAME[AgentType.ARCHITECT] == "claudecraft-architect"
+        assert AGENT_TYPE_TO_NAME[AgentType.CODER] == "claudecraft-coder"
+        assert AGENT_TYPE_TO_NAME[AgentType.REVIEWER] == "claudecraft-reviewer"
+        assert AGENT_TYPE_TO_NAME[AgentType.TESTER] == "claudecraft-tester"
+        assert AGENT_TYPE_TO_NAME[AgentType.QA] == "claudecraft-qa"
 
     def test_agent_allowed_tools(self):
         """Test agent allowed tools mapping."""
@@ -283,7 +283,7 @@ class TestBuildAgentPrompt:
 
         prompt = pipeline._build_agent_prompt(sample_task, stage, worktree_path, 1)
 
-        assert "specflow-coder" in prompt
+        assert "claudecraft-coder" in prompt
         assert sample_task.id in prompt
         assert sample_task.title in prompt
         assert "IMPLEMENTATION COMPLETE" in prompt
@@ -296,7 +296,7 @@ class TestBuildAgentPrompt:
 
         prompt = pipeline._build_agent_prompt(sample_task, stage, worktree_path, 1)
 
-        assert "specflow-reviewer" in prompt
+        assert "claudecraft-reviewer" in prompt
         assert "REVIEW PASSED" in prompt
         assert "REVIEW FAILED" in prompt
 
@@ -307,7 +307,7 @@ class TestBuildAgentPrompt:
 
         prompt = pipeline._build_agent_prompt(sample_task, stage, worktree_path, 1)
 
-        assert "specflow-tester" in prompt
+        assert "claudecraft-tester" in prompt
         assert "TESTS PASSED" in prompt
         assert "TESTS FAILED" in prompt
 
@@ -318,7 +318,7 @@ class TestBuildAgentPrompt:
 
         prompt = pipeline._build_agent_prompt(sample_task, stage, worktree_path, 1)
 
-        assert "specflow-qa" in prompt
+        assert "claudecraft-qa" in prompt
         assert "QA PASSED" in prompt
         assert "QA FAILED" in prompt
 
@@ -329,10 +329,10 @@ class TestBuildAgentPrompt:
 
         prompt = pipeline._build_agent_prompt(sample_task, stage, worktree_path, 1)
 
-        assert "specflow task-followup" in prompt
+        assert "claudecraft task-followup" in prompt
         assert "PLACEHOLDER-" in prompt
         assert "TECH-DEBT-" in prompt
-        assert "specflow list-tasks" in prompt
+        assert "claudecraft list-tasks" in prompt
 
 
 class TestRunClaudeHeadless:
@@ -656,18 +656,18 @@ class TestCheckStageSuccess:
 # Phase 4 Tests: Ralph Loop Integration
 # =============================================================================
 
-from specflow.core.database import (
+from claudecraft.core.database import (
     CompletionCriteria,
     TaskCompletionSpec,
     VerificationMethod,
 )
-from specflow.orchestration.ralph import RalphLoop, RalphLoopConfig
+from claudecraft.orchestration.ralph import RalphLoop, RalphLoopConfig
 
 
 @pytest.fixture
 def sample_task_with_spec(project):
     """Create a sample task with completion spec."""
-    from specflow.core.database import Spec, SpecStatus
+    from claudecraft.core.database import Spec, SpecStatus
 
     spec = Spec(
         id="spec-ralph",
@@ -860,7 +860,7 @@ class TestBuildRalphPrompt:
         )
 
         # Should include base prompt content
-        assert "specflow-coder" in prompt
+        assert "claudecraft-coder" in prompt
         assert sample_task_with_spec.title in prompt
 
         # Should include Ralph section

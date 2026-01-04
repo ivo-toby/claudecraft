@@ -1,8 +1,8 @@
-# SpecFlow: Complete Specification
+# ClaudeCraft: Complete Specification
 
 ## Executive Summary
 
-SpecFlow is a TUI-based project orchestration layer that unifies:
+ClaudeCraft is a TUI-based project orchestration layer that unifies:
 
 - **GitHub SpecKit** for spec-driven development workflow
 - **Beads** for Git-native issue tracking with dependency management
@@ -24,7 +24,7 @@ The tool enables BRD/PRD ingestion → human-validated specs → fully autonomou
 | /speckit.specify   | Generate functional specification | Core of spec phase            |
 | /speckit.plan      | Technical implementation plan     | Pre-implementation            |
 | /speckit.tasks     | Decompose into executable tasks   | Task generation               |
-| /speckit.implement | Execute all tasks                 | Orchestrated by SpecFlow      |
+| /speckit.implement | Execute all tasks                 | Orchestrated by ClaudeCraft      |
 | Review checklist   | Validation against spec           | QA phase input                |
 
 ### From Beads (Inspiration/Patterns)
@@ -56,7 +56,7 @@ The tool enables BRD/PRD ingestion → human-validated specs → fully autonomou
 | Skills         | Auto-loading context providers | Framework-specific knowledge           |
 | Hooks          | Lifecycle automation           | Pre/post task validation               |
 | MCP servers    | External integrations          | Git, testing frameworks                |
-| Slash commands | User-triggered workflows       | `/specflow.*` commands                 |
+| Slash commands | User-triggered workflows       | `/claudecraft.*` commands                 |
 
 ---
 
@@ -66,7 +66,7 @@ The tool enables BRD/PRD ingestion → human-validated specs → fully autonomou
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           SpecFlow TUI                                  │
+│                           ClaudeCraft TUI                                  │
 │  ┌───────────────────────────────────────────────────────────────────┐ │
 │  │  Textual Framework                                                 │ │
 │  │  - Dashboard (specs, agents, worktrees, insights)                  │ │
@@ -99,10 +99,10 @@ The tool enables BRD/PRD ingestion → human-validated specs → fully autonomou
 
 ```
 project-root/
-├── .specflow/
+├── .claudecraft/
 │   ├── constitution.md              # Project principles (from SpecKit)
-│   ├── config.yaml                  # SpecFlow configuration
-│   ├── specflow.db                  # SQLite database
+│   ├── config.yaml                  # ClaudeCraft configuration
+│   ├── claudecraft.db                  # SQLite database
 │   ├── specs.jsonl                  # Git-friendly sync (Beads pattern)
 │   └── memory/                      # Cross-session context
 │       ├── entities.json
@@ -123,22 +123,22 @@ project-root/
 │           ├── review.md
 │           └── tests.md
 ├── .claude/
-│   ├── agents/                      # SpecFlow sub-agents
+│   ├── agents/                      # ClaudeCraft sub-agents
 │   │   ├── architect.md
 │   │   ├── coder.md
 │   │   ├── reviewer.md
 │   │   ├── tester.md
 │   │   └── qa.md
 │   ├── commands/                    # Slash commands
-│   │   ├── specflow.init.md
-│   │   ├── specflow.ingest.md
-│   │   ├── specflow.specify.md
-│   │   ├── specflow.plan.md
-│   │   ├── specflow.tasks.md
-│   │   ├── specflow.implement.md
-│   │   └── specflow.qa.md
+│   │   ├── claudecraft.init.md
+│   │   ├── claudecraft.ingest.md
+│   │   ├── claudecraft.specify.md
+│   │   ├── claudecraft.plan.md
+│   │   ├── claudecraft.tasks.md
+│   │   ├── claudecraft.implement.md
+│   │   └── claudecraft.qa.md
 │   ├── skills/                      # Auto-loading skills
-│   │   └── specflow/
+│   │   └── claudecraft/
 │   │       └── SKILL.md
 │   └── hooks/
 │       └── hooks.json               # Lifecycle hooks
@@ -174,7 +174,7 @@ AI Role: Research assistant, idea expander
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐        │
-│  │ BRD/PRD     │───▶│ /specflow   │───▶│ Clarifying  │        │
+│  │ BRD/PRD     │───▶│ /claudecraft   │───▶│ Clarifying  │        │
 │  │ Ingestion   │    │ .ingest     │    │ Questions   │        │
 │  └─────────────┘    └─────────────┘    └──────┬──────┘        │
 │                                                │                │
@@ -183,7 +183,7 @@ AI Role: Research assistant, idea expander
 │                                        └───────┬───────┘       │
 │                                                │                │
 │  ┌─────────────┐    ┌─────────────┐    ┌──────▼──────┐        │
-│  │ spec.md     │◀───│ /specflow   │◀───│ /speckit    │        │
+│  │ spec.md     │◀───│ /claudecraft   │◀───│ /speckit    │        │
 │  │ Generated   │    │ .specify    │    │ .clarify    │        │
 │  └──────┬──────┘    └─────────────┘    └─────────────┘        │
 │         │                                                       │
@@ -292,9 +292,9 @@ Sub-agents: Merge specialist, QA
 ### Architect Agent
 
 ```yaml
-name: specflow-architect
+name: claudecraft-architect
 description: |
-  Senior software architect for SpecFlow. MUST BE USED for:
+  Senior software architect for ClaudeCraft. MUST BE USED for:
   - Analyzing existing codebase before implementation
   - Creating technical plans from specifications
   - Making technology and architecture decisions
@@ -303,30 +303,30 @@ description: |
   Use PROACTIVELY when specs are approved.
 model: opus
 tools: Read, Grep, Glob, Bash, WebSearch
-skills: specflow
+skills: claudecraft
 permissionMode: default
 ```
 
 ### Coder Agent
 
 ```yaml
-name: specflow-coder
+name: claudecraft-coder
 description: |
-  Implementation engineer for SpecFlow. Executes tasks from tasks.md.
+  Implementation engineer for ClaudeCraft. Executes tasks from tasks.md.
   Writes clean, tested, documented code following constitution.md.
   Does NOT merge to main. Works in isolated worktrees.
 model: sonnet
 tools: Read, Write, Edit, Bash, Grep, Glob
-skills: specflow
+skills: claudecraft
 permissionMode: default
 ```
 
 ### Reviewer Agent
 
 ```yaml
-name: specflow-reviewer
+name: claudecraft-reviewer
 description: |
-  Code reviewer for SpecFlow. Reviews all code changes against:
+  Code reviewer for ClaudeCraft. Reviews all code changes against:
   - Functional requirements in spec.md
   - Technical decisions in plan.md
   - Project standards in constitution.md
@@ -339,9 +339,9 @@ permissionMode: default
 ### Tester Agent
 
 ```yaml
-name: specflow-tester
+name: claudecraft-tester
 description: |
-  Test engineer for SpecFlow. Writes and runs tests:
+  Test engineer for ClaudeCraft. Writes and runs tests:
   - Unit tests for all new functions/methods
   - Integration tests for APIs and data flows
   - End-to-end tests for user-facing features
@@ -354,9 +354,9 @@ permissionMode: default
 ### QA Agent
 
 ```yaml
-name: specflow-qa
+name: claudecraft-qa
 description: |
-  Quality assurance for SpecFlow. Final validation:
+  Quality assurance for ClaudeCraft. Final validation:
   - All tests pass
   - Code review approved
   - Acceptance criteria from spec.md met
@@ -371,17 +371,17 @@ permissionMode: default
 
 ## 5. Skills Definition
 
-### SpecFlow Skill (SKILL.md)
+### ClaudeCraft Skill (SKILL.md)
 
 ```markdown
 ---
-name: specflow
+name: claudecraft
 description: |
   Spec-driven development workflow skill. Auto-loads when working on:
   - Specification creation or editing
   - Technical planning
   - Task decomposition
-  - Implementation within SpecFlow context
+  - Implementation within ClaudeCraft context
 triggers:
   - "spec"
   - "specification"
@@ -391,7 +391,7 @@ triggers:
   - "task breakdown"
 ---
 
-# SpecFlow Workflow Skill
+# ClaudeCraft Workflow Skill
 
 ## Project Context
 
@@ -406,7 +406,7 @@ triggers:
 
 ## Key Files
 
-- .specflow/config.yaml: Project configuration
+- .claudecraft/config.yaml: Project configuration
 - specs/{id}/spec.md: Functional requirements
 - specs/{id}/plan.md: Technical approach
 - specs/{id}/tasks.md: Executable task list
@@ -421,13 +421,13 @@ triggers:
 
 ## Commands Available
 
-- /specflow.init: Initialize project
-- /specflow.ingest: Import BRD/PRD
-- /specflow.specify: Generate specification
-- /specflow.plan: Create technical plan
-- /specflow.tasks: Decompose into tasks
-- /specflow.implement: Execute implementation
-- /specflow.qa: Run QA validation
+- /claudecraft.init: Initialize project
+- /claudecraft.ingest: Import BRD/PRD
+- /claudecraft.specify: Generate specification
+- /claudecraft.plan: Create technical plan
+- /claudecraft.tasks: Decompose into tasks
+- /claudecraft.implement: Execute implementation
+- /claudecraft.qa: Run QA validation
 ```
 
 ---
@@ -516,7 +516,7 @@ triggers:
 ```markdown
 ## Objective
 
-Bootstrap SpecFlow project structure and core infrastructure.
+Bootstrap ClaudeCraft project structure and core infrastructure.
 
 ## Tasks
 
@@ -524,7 +524,7 @@ Bootstrap SpecFlow project structure and core infrastructure.
    - pyproject.toml with dependencies
    - Textual, SQLite, GitPython, PyYAML
 2. Create directory structure
-   - .specflow/, specs/, .claude/
+   - .claudecraft/, specs/, .claude/
 3. Implement config management
    - YAML config loader
    - Default configuration
@@ -592,14 +592,14 @@ Create sub-agent definitions for engineering team.
    - .claude/agents/tester.md
    - .claude/agents/qa.md
 
-2. Create SpecFlow skill
-   - .claude/skills/specflow/SKILL.md
+2. Create ClaudeCraft skill
+   - .claude/skills/claudecraft/SKILL.md
 3. Create hooks configuration
    - .claude/hooks/hooks.json
    - Hook scripts
 
 4. Create slash commands
-   - .claude/commands/specflow.\*.md
+   - .claude/commands/claudecraft.\*.md
 
 ## Validation
 
@@ -729,7 +729,7 @@ Add persistence and final features.
 ## 9. Recommended Skills to Install
 
 ```bash
-# For SpecFlow development
+# For ClaudeCraft development
 claude /plugin marketplace add fcakyon/claude-codex-settings
 claude /plugin install github-dev@fcakyon-claude-plugins    # Git workflow
 claude /plugin install general-dev@fcakyon-claude-plugins   # Code quality
@@ -746,9 +746,9 @@ claude mcp add textual-docs -- npx -y @anthropics/mcp-server-fetch
 ### Bootstrap Prompt
 
 ```
-You are implementing SpecFlow, a TUI-based spec-driven development orchestrator.
+You are implementing ClaudeCraft, a TUI-based spec-driven development orchestrator.
 
-Read the complete specification at: specs/specflow/spec.md
+Read the complete specification at: specs/claudecraft/spec.md
 
 Your task is to implement Phase 1: Foundation.
 
@@ -770,9 +770,9 @@ Do not ask for confirmation - the spec is your source of truth.
 ### Continuation Prompt
 
 ```
-Continue SpecFlow implementation.
+Continue ClaudeCraft implementation.
 
-Check specs/specflow/tasks.md for current progress.
+Check specs/claudecraft/tasks.md for current progress.
 Run `bd ready` equivalent (check tasks.md for uncompleted tasks with met dependencies).
 Pick the highest priority ready task and implement it.
 
@@ -789,7 +789,7 @@ Work autonomously until all tasks are complete.
 
 ## 11. Key Differentiators
 
-| Aspect         | SpecKit      | Beads         | Auto-Claude            | SpecFlow           |
+| Aspect         | SpecKit      | Beads         | Auto-Claude            | ClaudeCraft           |
 | -------------- | ------------ | ------------- | ---------------------- | ------------------ |
 | Interface      | CLI + IDE    | CLI + Web     | Electron GUI           | TUI                |
 | Spec Workflow  | Full SDD     | Issue-based   | Basic                  | Full SDD + BRD/PRD |
@@ -803,7 +803,7 @@ Work autonomously until all tasks are complete.
 
 ## 12. Success Criteria
 
-1. **Initialization**: `specflow init` creates valid project structure
+1. **Initialization**: `claudecraft init` creates valid project structure
 2. **Ingestion**: BRD/PRD documents parsed and fed to spec generation
 3. **Specification**: Human-approved specs with validation against source docs
 4. **Autonomous Implementation**: Zero human intervention from spec to merge

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This plan transforms SpecFlow's task management from file-based to database-driven with a swimlane TUI interface and reactive updates.
+This plan transforms ClaudeCraft's task management from file-based to database-driven with a swimlane TUI interface and reactive updates.
 
 **Estimated Complexity:** Medium-High
 **Files to Modify:** 8
@@ -14,7 +14,7 @@ This plan transforms SpecFlow's task management from file-based to database-driv
 
 ### 1.1 Update TaskStatus Enum
 
-**File:** `src/specflow/core/database.py`
+**File:** `src/claudecraft/core/database.py`
 
 **Changes:**
 - Replace existing `TaskStatus` enum with new workflow-aligned statuses
@@ -48,7 +48,7 @@ class TaskStatus(Enum):
 
 ### 1.2 Add New Database Methods
 
-**File:** `src/specflow/core/database.py`
+**File:** `src/claudecraft/core/database.py`
 
 **New methods to add:**
 
@@ -68,7 +68,7 @@ def get_tasks_updated_since(self, spec_id: str, since: datetime) -> list[Task]:
 
 ### 1.3 Schema Migration
 
-**File:** `src/specflow/core/database.py`
+**File:** `src/claudecraft/core/database.py`
 
 Add to `_migrate_schema()`:
 
@@ -100,7 +100,7 @@ def _migrate_schema(self):
 
 ### 2.1 Create Swimlane Module
 
-**File:** `src/specflow/tui/widgets/swimlanes.py` (NEW)
+**File:** `src/claudecraft/tui/widgets/swimlanes.py` (NEW)
 
 **Components:**
 
@@ -177,7 +177,7 @@ TaskCard.selected {
 
 ### 2.4 Task Detail Modal
 
-**File:** `src/specflow/tui/widgets/swimlanes.py`
+**File:** `src/claudecraft/tui/widgets/swimlanes.py`
 
 **Shows:**
 - Full task description
@@ -191,7 +191,7 @@ TaskCard.selected {
 
 ### 3.1 Polling Mechanism
 
-**File:** `src/specflow/tui/widgets/swimlanes.py`
+**File:** `src/claudecraft/tui/widgets/swimlanes.py`
 
 ```python
 class SwimlaneBoard(Container):
@@ -220,7 +220,7 @@ class SwimlaneBoard(Container):
 
 ### 3.2 Message Classes
 
-**File:** `src/specflow/tui/widgets/swimlanes.py`
+**File:** `src/claudecraft/tui/widgets/swimlanes.py`
 
 ```python
 class TasksUpdated(Message):
@@ -252,20 +252,20 @@ def _refresh_lanes(self, changed_tasks: list[Task]) -> None:
 
 ## Phase 4: Claude Code Integration
 
-### 4.1 Update /specflow.tasks Command
+### 4.1 Update /claudecraft.tasks Command
 
-**File:** `.claude/commands/specflow.tasks.md`
+**File:** `.claude/commands/claudecraft.tasks.md`
 
 **Changes:**
 - Remove all `tasks.md` file generation
-- Import `Database` class from specflow
+- Import `Database` class from claudecraft
 - Create tasks directly in database
 
 **Key code to add:**
 
 ```python
-from specflow.core.project import Project
-from specflow.core.database import TaskStatus
+from claudecraft.core.project import Project
+from claudecraft.core.database import TaskStatus
 
 def create_tasks(spec_id: str, tasks: list[dict]) -> None:
     project = Project.load()
@@ -281,17 +281,17 @@ def create_tasks(spec_id: str, tasks: list[dict]) -> None:
         )
 ```
 
-### 4.2 Update /specflow.implement Command
+### 4.2 Update /claudecraft.implement Command
 
-**File:** `.claude/commands/specflow.implement.md`
+**File:** `.claude/commands/claudecraft.implement.md`
 
 **Changes:**
 - Read tasks from database instead of `tasks.md`
 - Update status at each pipeline stage:
 
 ```python
-from specflow.core.project import Project
-from specflow.core.database import TaskStatus
+from claudecraft.core.project import Project
+from claudecraft.core.database import TaskStatus
 
 def update_task_status(task_id: str, status: str) -> None:
     project = Project.load()
@@ -310,7 +310,7 @@ update_task_status(task.id, "done")          # Complete
 
 ### 4.3 Update Skill Context
 
-**File:** `.claude/skills/specflow/SKILL.md`
+**File:** `.claude/skills/claudecraft/SKILL.md`
 
 Add section:
 
@@ -321,8 +321,8 @@ Tasks are stored in the SQLite database, not in files.
 
 To update task status during implementation:
 ```python
-from specflow.core.project import Project
-from specflow.core.database import TaskStatus
+from claudecraft.core.project import Project
+from claudecraft.core.database import TaskStatus
 
 project = Project.load()
 db = project.db
@@ -338,12 +338,12 @@ Available statuses: todo, implementing, testing, reviewing, done
 
 ### 5.1 Add Swimlane Screen to App
 
-**File:** `src/specflow/tui/app.py`
+**File:** `src/claudecraft/tui/app.py`
 
 **Changes:**
 
 ```python
-from specflow.tui.widgets.swimlanes import SwimlaneScreen
+from claudecraft.tui.widgets.swimlanes import SwimlaneScreen
 
 BINDINGS = [
     # ... existing ...
@@ -358,7 +358,7 @@ def action_show_tasks(self) -> None:
 
 ### 5.2 Update Spec Panel Integration
 
-**File:** `src/specflow/tui/widgets/specs.py`
+**File:** `src/claudecraft/tui/widgets/specs.py`
 
 Add task count display showing swimlane breakdown:
 
@@ -374,7 +374,7 @@ def _format_spec_item(self, spec: Spec) -> str:
 
 ### 5.3 Widget Registration
 
-**File:** `src/specflow/tui/widgets/__init__.py`
+**File:** `src/claudecraft/tui/widgets/__init__.py`
 
 ```python
 from .swimlanes import SwimlaneScreen, SwimlaneBoard, TaskCard
@@ -386,7 +386,7 @@ from .swimlanes import SwimlaneScreen, SwimlaneBoard, TaskCard
 
 ### 6.1 Legacy tasks.md Handler
 
-**File:** `src/specflow/core/project.py`
+**File:** `src/claudecraft/core/project.py`
 
 ```python
 def migrate_legacy_tasks(self, spec_id: str) -> int:
@@ -409,15 +409,15 @@ def migrate_legacy_tasks(self, spec_id: str) -> int:
 ### 6.2 Remove tasks.md from Workflow
 
 **Files to update:**
-- `src/specflow/tui/widgets/spec_editor.py` - Remove Tasks tab or make read-only from DB
-- `.claude/commands/specflow.tasks.md` - Remove file generation
+- `src/claudecraft/tui/widgets/spec_editor.py` - Remove Tasks tab or make read-only from DB
+- `.claude/commands/claudecraft.tasks.md` - Remove file generation
 
 ### 6.3 Update Documentation
 
 **Files:**
 - `README.md` - Update workflow description
 - `CLAUDE.md` - Update project context
-- `specs/specflow/spec.md` - Mark tasks.md as deprecated
+- `specs/claudecraft/spec.md` - Mark tasks.md as deprecated
 
 ---
 
@@ -425,15 +425,15 @@ def migrate_legacy_tasks(self, spec_id: str) -> int:
 
 | File | Action | Changes |
 |------|--------|---------|
-| `src/specflow/core/database.py` | MODIFY | New enum, methods, migration |
-| `src/specflow/tui/widgets/swimlanes.py` | CREATE | Full swimlane widget |
-| `src/specflow/tui/widgets/__init__.py` | MODIFY | Export new widgets |
-| `src/specflow/tui/app.py` | MODIFY | Add 't' binding, action |
-| `src/specflow/tui/widgets/specs.py` | MODIFY | Task count display |
-| `src/specflow/core/project.py` | MODIFY | Legacy migration |
-| `.claude/commands/specflow.tasks.md` | MODIFY | Database writes |
-| `.claude/commands/specflow.implement.md` | MODIFY | Status updates |
-| `.claude/skills/specflow/SKILL.md` | MODIFY | Task management docs |
+| `src/claudecraft/core/database.py` | MODIFY | New enum, methods, migration |
+| `src/claudecraft/tui/widgets/swimlanes.py` | CREATE | Full swimlane widget |
+| `src/claudecraft/tui/widgets/__init__.py` | MODIFY | Export new widgets |
+| `src/claudecraft/tui/app.py` | MODIFY | Add 't' binding, action |
+| `src/claudecraft/tui/widgets/specs.py` | MODIFY | Task count display |
+| `src/claudecraft/core/project.py` | MODIFY | Legacy migration |
+| `.claude/commands/claudecraft.tasks.md` | MODIFY | Database writes |
+| `.claude/commands/claudecraft.implement.md` | MODIFY | Status updates |
+| `.claude/skills/claudecraft/SKILL.md` | MODIFY | Task management docs |
 
 ---
 

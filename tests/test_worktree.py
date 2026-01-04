@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from git import Repo
 
-from specflow.orchestration.worktree import WorktreeManager
+from claudecraft.orchestration.worktree import WorktreeManager
 
 
 @pytest.fixture

@@ -79,10 +79,10 @@ desktop.ini
 secrets.yaml
 secrets.yml
 
-# SpecFlow specific
+# ClaudeCraft specific
 .worktrees/
-.specflow/database.db
-.specflow/memory/
+.claudecraft/database.db
+.claudecraft/memory/
 
 # Temporary files
 *.tmp

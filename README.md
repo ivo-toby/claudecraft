@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="SpecFlow Logo" width="400">
+  <img src="assets/logo.png" alt="ClaudeCraft Logo" width="400">
 </p>
 
 <p align="center">
@@ -16,13 +16,13 @@
 
 ---
 
-## What is SpecFlow?
+## What is ClaudeCraft?
 
-SpecFlow transforms how you build software. Feed it a business requirements document, and watch as AI agents autonomously architect, implement, test, and review your code — all while you monitor progress in a beautiful terminal UI. AutoClaude meets SpecKit.
+ClaudeCraft transforms how you build software. Feed it a business requirements document, and watch as AI agents autonomously architect, implement, test, and review your code — all while you monitor progress in a beautiful terminal UI. AutoClaude meets SpecKit.
 
 **The problem:** Building software from requirements is a manual, error-prone process that requires constant human intervention at every stage.
 
-**The solution:** SpecFlow orchestrates specialized AI agents that work in parallel, each focused on what they do best:
+**The solution:** ClaudeCraft orchestrates specialized AI agents that work in parallel, each focused on what they do best:
 
 - **Architect** designs the technical approach
 - **Coder** implements features in isolated git worktrees
@@ -35,22 +35,22 @@ You stay in control through human approval gates during specification, then let 
 ## Screenshots
 
 <p align="center">
-  <img src="assets/tui-start.png" alt="SpecFlow TUI - Start Screen" width="800">
+  <img src="assets/tui-start.png" alt="ClaudeCraft TUI - Start Screen" width="800">
   <br><em>Dashboard with specs, agents, and dependency graph</em>
 </p>
 
 <p align="center">
-  <img src="assets/tui-kanban.png" alt="SpecFlow TUI - Kanban Board" width="800">
+  <img src="assets/tui-kanban.png" alt="ClaudeCraft TUI - Kanban Board" width="800">
   <br><em>Task swimlane board showing real-time progress</em>
 </p>
 
 <p align="center">
-  <img src="assets/tui-spec.png" alt="SpecFlow TUI - Spec View" width="800">
+  <img src="assets/tui-spec.png" alt="ClaudeCraft TUI - Spec View" width="800">
   <br><em>Specification viewer with markdown rendering</em>
 </p>
 
 <p align="center">
-  <img src="assets/tui-edit-task.png" alt="SpecFlow TUI - Edit Task" width="800">
+  <img src="assets/tui-edit-task.png" alt="ClaudeCraft TUI - Edit Task" width="800">
   <br><em>Task editor with status and dependency management</em>
 </p>
 
@@ -132,14 +132,14 @@ You stay in control through human approval gates during specification, then let 
 ### Install via pipx (Recommended)
 
 ```bash
-pipx install git+https://github.com/ivo-toby/specflow.git
+pipx install git+https://github.com/ivo-toby/claudecraft.git
 ```
 
 ### Install from source
 
 ```bash
-git clone https://github.com/ivo-toby/specflow.git
-cd specflow
+git clone https://github.com/ivo-toby/claudecraft.git
+cd claudecraft
 uv pip install -e ".[dev]"
 ```
 
@@ -149,12 +149,12 @@ uv pip install -e ".[dev]"
 
 ```bash
 cd your-project
-specflow init
+claudecraft init
 ```
 
 This creates:
 
-- `.specflow/` — Configuration and database
+- `.claudecraft/` — Configuration and database
 - `specs/` — Specification documents
 - `.claude/` — Agent definitions, skills, and commands
 - `.worktrees/` — Task execution environments (git-ignored)
@@ -162,7 +162,7 @@ This creates:
 ### 2. Configure your constitution
 
 ```bash
-/specflow.constitution
+/claudecraft.constitution
 ```
 
 This interactive command helps you define ground rules for all AI agents:
@@ -174,7 +174,7 @@ This interactive command helps you define ground rules for all AI agents:
 ### 3. Launch the TUI
 
 ```bash
-specflow tui
+claudecraft tui
 ```
 
 **Keyboard Shortcuts:**
@@ -196,31 +196,31 @@ specflow tui
 
 ```bash
 # Interactive BRD creation
-/specflow.brd
+/claudecraft.brd
 
 # Interactive PRD creation
-/specflow.prd
+/claudecraft.prd
 
 # Or ingest existing documents
-/specflow.ingest path/to/requirements.md
+/claudecraft.ingest path/to/requirements.md
 ```
 
 ### 5. Generate specification
 
 ```bash
-/specflow.specify {spec-id}
+/claudecraft.specify {spec-id}
 ```
 
 ### 6. Create implementation tasks
 
 ```bash
-/specflow.tasks {spec-id}
+/claudecraft.tasks {spec-id}
 ```
 
 ### 7. Execute autonomous implementation
 
 ```bash
-/specflow.implement {spec-id}
+/claudecraft.implement {spec-id}
 ```
 
 Watch agents work in the TUI as tasks flow through the pipeline!
@@ -230,30 +230,30 @@ Watch agents work in the TUI as tasks flow through the pipeline!
 ### Project Management
 
 ```bash
-specflow init [--path PATH] [--update]     # Initialize or update project
-specflow status [--json]                    # Show project status
-specflow tui [--path PATH]                  # Launch terminal UI
+claudecraft init [--path PATH] [--update]     # Initialize or update project
+claudecraft status [--json]                    # Show project status
+claudecraft tui [--path PATH]                  # Launch terminal UI
 ```
 
 ### Specification Management
 
 ```bash
-specflow list-specs [--status STATUS] [--json]
-specflow spec-create <id> [--title TITLE] [--source-type brd|prd]
-specflow spec-update <id> [--status STATUS] [--title TITLE]
-specflow spec-get <id> [--json]
+claudecraft list-specs [--status STATUS] [--json]
+claudecraft spec-create <id> [--title TITLE] [--source-type brd|prd]
+claudecraft spec-update <id> [--status STATUS] [--title TITLE]
+claudecraft spec-get <id> [--json]
 ```
 
 ### Task Management
 
 ```bash
-specflow list-tasks [--spec ID] [--status STATUS] [--json]
-specflow task-create <id> <spec-id> <title> [--priority 1|2|3] [--dependencies IDS] \
+claudecraft list-tasks [--spec ID] [--status STATUS] [--json]
+claudecraft task-create <id> <spec-id> <title> [--priority 1|2|3] [--dependencies IDS] \
     [--outcome TEXT] [--acceptance-criteria TEXT...] [--completion-file PATH] \
     [--coder-promise TEXT] [--coder-verification METHOD] [--coder-command CMD] \
     [--tester-command CMD] [--reviewer-verification METHOD]
-specflow task-update <id> <status>
-specflow task-followup <id> <spec-id> <title> [--parent TASK-ID] [--priority 2|3] \
+claudecraft task-update <id> <status>
+claudecraft task-followup <id> <spec-id> <title> [--parent TASK-ID] [--priority 2|3] \
     [--outcome TEXT] [--acceptance-criteria TEXT...]
 ```
 
@@ -266,16 +266,16 @@ specflow task-followup <id> <spec-id> <title> [--parent TASK-ID] [--priority 2|3
 ### Agent Management
 
 ```bash
-specflow agent-start <task-id> --type coder|tester|reviewer|qa
-specflow agent-stop --task <task-id>
-specflow list-agents [--json]
+claudecraft agent-start <task-id> --type coder|tester|reviewer|qa
+claudecraft agent-stop --task <task-id>
+claudecraft list-agents [--json]
 ```
 
 ### Ralph Loop (Self-Assessment)
 
 ```bash
-specflow ralph-status [--task-id ID] [--status STATUS] [--json]
-specflow ralph-cancel <task-id> [--agent-type TYPE] [--json]
+claudecraft ralph-status [--task-id ID] [--status STATUS] [--json]
+claudecraft ralph-cancel <task-id> [--agent-type TYPE] [--json]
 ```
 
 **Ralph status filters:** `running`, `completed`, `cancelled`, `failed`
@@ -283,21 +283,21 @@ specflow ralph-cancel <task-id> [--agent-type TYPE] [--json]
 ### Worktree & Merge
 
 ```bash
-specflow worktree-create <task-id> [--base main]
-specflow worktree-commit <task-id> "message"
-specflow worktree-list [--json]
-specflow worktree-remove <task-id> [--force]
-specflow merge-task <task-id> [--target main] [--cleanup]
+claudecraft worktree-create <task-id> [--base main]
+claudecraft worktree-commit <task-id> "message"
+claudecraft worktree-list [--json]
+claudecraft worktree-remove <task-id> [--force]
+claudecraft merge-task <task-id> [--target main] [--cleanup]
 ```
 
 ### Memory Management
 
 ```bash
-specflow memory-stats                              # Show memory statistics
-specflow memory-list [--type TYPE] [--spec ID]     # List memory entries
-specflow memory-search <keyword> [--type TYPE]     # Search memory
-specflow memory-add <type> <name> <description>    # Add manual entry
-specflow memory-cleanup [--days 90]                # Remove old entries
+claudecraft memory-stats                              # Show memory statistics
+claudecraft memory-list [--type TYPE] [--spec ID]     # List memory entries
+claudecraft memory-search <keyword> [--type TYPE]     # Search memory
+claudecraft memory-add <type> <name> <description>    # Add manual entry
+claudecraft memory-cleanup [--days 90]                # Remove old entries
 ```
 
 **Entity types:** `file`, `decision`, `pattern`, `dependency`, `note`
@@ -305,22 +305,22 @@ specflow memory-cleanup [--days 90]                # Remove old entries
 ### JSONL Sync (Git Collaboration)
 
 ```bash
-specflow sync-export                  # Export database to JSONL file
-specflow sync-import                  # Import from JSONL to database
-specflow sync-compact                 # Compact JSONL (remove old changes)
-specflow sync-status                  # Show sync status and statistics
+claudecraft sync-export                  # Export database to JSONL file
+claudecraft sync-import                  # Import from JSONL to database
+claudecraft sync-compact                 # Compact JSONL (remove old changes)
+claudecraft sync-status                  # Show sync status and statistics
 ```
 
 JSONL sync enables git-based collaboration:
 
 1. Changes are automatically recorded to `specs.jsonl`
 2. Commit and push the JSONL file
-3. Collaborators pull and changes are imported on next `specflow` run
+3. Collaborators pull and changes are imported on next `claudecraft` run
 
 ### Documentation Generation
 
 ```bash
-specflow generate-docs [--spec ID] [--output DIR] [--model MODEL]
+claudecraft generate-docs [--spec ID] [--output DIR] [--model MODEL]
 ```
 
 Generate comprehensive developer documentation for your codebase. The docs-generator agent analyzes your code and creates:
@@ -333,19 +333,19 @@ Generate comprehensive developer documentation for your codebase. The docs-gener
 
 ```bash
 # Generate docs for entire codebase
-specflow generate-docs
+claudecraft generate-docs
 
 # Generate docs for specific spec
-specflow generate-docs --spec auth-feature
+claudecraft generate-docs --spec auth-feature
 
 # Use a specific model
-specflow generate-docs --model opus
+claudecraft generate-docs --model opus
 ```
 
 ### Headless Execution
 
 ```bash
-specflow execute [--spec ID] [--task ID] [--max-parallel 6] [--json]
+claudecraft execute [--spec ID] [--task ID] [--max-parallel 6] [--json]
 ```
 
 The `execute` command runs the full agent pipeline autonomously:
@@ -360,19 +360,19 @@ The `execute` command runs the full agent pipeline autonomously:
 
 ```bash
 # Execute all ready tasks across all specs
-specflow execute
+claudecraft execute
 
 # Execute tasks for a specific spec
-specflow execute --spec todo-app-20251228
+claudecraft execute --spec todo-app-20251228
 
 # Execute a single task
-specflow execute --task TASK-001
+claudecraft execute --task TASK-001
 
 # Run with max 3 parallel agents
-specflow execute --max-parallel 3
+claudecraft execute --max-parallel 3
 
 # Get JSON output for CI/CD pipelines
-specflow execute --spec my-feature --json
+claudecraft execute --spec my-feature --json
 ```
 
 **Pipeline Stages:**
@@ -393,36 +393,36 @@ If a stage fails after max retries, the task resets to `todo` status with failur
 ### Example 1: Building a Todo App
 
 ```bash
-# 1. Initialize SpecFlow in your project
+# 1. Initialize ClaudeCraft in your project
 cd my-todo-app
-specflow init
+claudecraft init
 
 # 2. Configure your constitution (defines rules for all agents)
-/specflow.constitution
+/claudecraft.constitution
 # Set your tech stack, code standards, testing requirements
 
 # 3. Create a BRD (in Claude Code)
-/specflow.brd
+/claudecraft.brd
 # Answer questions about your business requirements
 
 # 4. Create a PRD from the BRD
-/specflow.prd
+/claudecraft.prd
 # Refine into product requirements
 
 # 5. Generate technical specification
-/specflow.specify todo-app-20251228
+/claudecraft.specify todo-app-20251228
 # AI generates spec.md with your approval
 
 # 6. Create implementation tasks
-/specflow.tasks todo-app-20251228
+/claudecraft.tasks todo-app-20251228
 # Creates tasks with dependencies
 
 # 7. Launch TUI to monitor
-specflow tui
+claudecraft tui
 # Press 't' for swimlane view
 
 # 8. Execute autonomous implementation
-/specflow.implement todo-app-20251228
+/claudecraft.implement todo-app-20251228
 # Watch agents work in real-time!
 ```
 
@@ -433,7 +433,7 @@ specflow tui
 # ci-pipeline.sh
 
 # Execute all ready tasks with JSON output
-result=$(specflow execute --json)
+result=$(claudecraft execute --json)
 
 # Check results
 successful=$(echo "$result" | jq '.successful')
@@ -451,64 +451,64 @@ echo "✅ $successful tasks completed successfully"
 
 ```bash
 # Create a spec manually
-specflow spec-create auth-feature --title "User Authentication"
+claudecraft spec-create auth-feature --title "User Authentication"
 
 # Add tasks with dependencies
-specflow task-create TASK-001 auth-feature "Setup database schema" --priority 1
-specflow task-create TASK-002 auth-feature "Implement login endpoint" --priority 2 --dependencies TASK-001
-specflow task-create TASK-003 auth-feature "Add session management" --priority 2 --dependencies TASK-001
-specflow task-create TASK-004 auth-feature "Integration tests" --priority 3 --dependencies TASK-002,TASK-003
+claudecraft task-create TASK-001 auth-feature "Setup database schema" --priority 1
+claudecraft task-create TASK-002 auth-feature "Implement login endpoint" --priority 2 --dependencies TASK-001
+claudecraft task-create TASK-003 auth-feature "Add session management" --priority 2 --dependencies TASK-001
+claudecraft task-create TASK-004 auth-feature "Integration tests" --priority 3 --dependencies TASK-002,TASK-003
 
 # Check task status
-specflow list-tasks --spec auth-feature
+claudecraft list-tasks --spec auth-feature
 
 # Execute a specific task
-specflow execute --task TASK-001
+claudecraft execute --task TASK-001
 ```
 
 ### Example 4: Working with Worktrees
 
 ```bash
 # Create a worktree for manual work
-specflow worktree-create TASK-001
+claudecraft worktree-create TASK-001
 
 # Work in the worktree
 cd .worktrees/TASK-001
 # ... make changes ...
 
 # Commit changes
-specflow worktree-commit TASK-001 "Implement database schema"
+claudecraft worktree-commit TASK-001 "Implement database schema"
 
 # Merge back to main
-specflow merge-task TASK-001 --cleanup
+claudecraft merge-task TASK-001 --cleanup
 
 # List all active worktrees
-specflow worktree-list --json
+claudecraft worktree-list --json
 ```
 
 ### Example 5: Using Cross-Session Memory
 
 ```bash
 # Add a design decision to memory
-specflow memory-add decision "Use Repository Pattern" \
+claudecraft memory-add decision "Use Repository Pattern" \
     "All data access goes through repository interfaces" \
     --spec auth-feature
 
 # Store a technical note
-specflow memory-add note "Connection Pooling" \
+claudecraft memory-add note "Connection Pooling" \
     "Database connections should use pooling for performance"
 
 # Search memory for relevant context
-specflow memory-search "repository"
+claudecraft memory-search "repository"
 
 # View memory statistics
-specflow memory-stats
+claudecraft memory-stats
 
 # List all decisions
-specflow memory-list --type decision
+claudecraft memory-list --type decision
 
 # Memory is automatically injected into agent prompts during execution
-specflow execute --spec auth-feature
+claudecraft execute --spec auth-feature
 # Agents will see: "## Relevant Context from Memory\n### Decisions\n- Use Repository Pattern..."
 ```
 
@@ -518,16 +518,16 @@ During implementation, agents automatically create follow-up tasks:
 
 ```bash
 # Agents create follow-up tasks like:
-specflow task-followup TECH-DEBT-001 auth-feature \
+claudecraft task-followup TECH-DEBT-001 auth-feature \
     "Add connection pooling to database module" \
     --parent TASK-002 --priority 3
 
-specflow task-followup PLACEHOLDER-001 auth-feature \
+claudecraft task-followup PLACEHOLDER-001 auth-feature \
     "Implement OAuth refresh token logic" \
     --parent TASK-003 --priority 2
 
 # View follow-up tasks for a spec
-specflow list-tasks --spec auth-feature --json | jq '.tasks[] | select(.metadata.is_followup)'
+claudecraft list-tasks --spec auth-feature --json | jq '.tasks[] | select(.metadata.is_followup)'
 
 # Follow-up tasks appear with colored badges in TUI:
 # [DEBT] - Red badge for tech debt
@@ -537,10 +537,10 @@ specflow list-tasks --spec auth-feature --json | jq '.tasks[] | select(.metadata
 
 ### Example 7: Task Completion Criteria (Ralph Loop)
 
-SpecFlow supports task-level completion criteria using the "Ralph Loop" methodology. This ensures agents truly complete their work before moving on.
+ClaudeCraft supports task-level completion criteria using the "Ralph Loop" methodology. This ensures agents truly complete their work before moving on.
 
 ```python
-from specflow.core.database import (
+from claudecraft.core.database import (
     Task, TaskCompletionSpec, CompletionCriteria, VerificationMethod
 )
 
@@ -620,7 +620,7 @@ task = Task(
 
 ```bash
 # Create task with completion criteria via CLI
-specflow task-create TASK-001 auth-feature "Implement JWT auth" \
+claudecraft task-create TASK-001 auth-feature "Implement JWT auth" \
     --priority 1 \
     --outcome "JWT authentication fully working" \
     --acceptance-criteria "Login returns valid JWT" \
@@ -631,17 +631,17 @@ specflow task-create TASK-001 auth-feature "Implement JWT auth" \
     --tester-command "pytest --cov=src/auth --cov-fail-under=80"
 
 # Or load completion spec from YAML file
-specflow task-create TASK-002 auth-feature "Add refresh tokens" \
+claudecraft task-create TASK-002 auth-feature "Add refresh tokens" \
     --completion-file specs/auth-feature/completion.yaml
 
 # Monitor Ralph loop status
-specflow ralph-status
-specflow ralph-status --task-id TASK-001
-specflow ralph-status --status running
+claudecraft ralph-status
+claudecraft ralph-status --task-id TASK-001
+claudecraft ralph-status --status running
 
 # Cancel a stuck Ralph loop
-specflow ralph-cancel TASK-001
-specflow ralph-cancel TASK-001 --agent-type coder
+claudecraft ralph-cancel TASK-001
+claudecraft ralph-cancel TASK-001 --agent-type coder
 ```
 
 **Best Practices:**
@@ -657,69 +657,69 @@ For detailed specification, see [docs/RALPH_SPEC.md](docs/RALPH_SPEC.md).
 
 ### Example 8: Ingesting an Existing Spec File
 
-If you already have a requirements or specification document, you can quickly get SpecFlow working on it:
+If you already have a requirements or specification document, you can quickly get ClaudeCraft working on it:
 
 ```bash
-# 1. Initialize SpecFlow in your project
+# 1. Initialize ClaudeCraft in your project
 cd my-project
-specflow init
+claudecraft init
 
 # 2. Configure your constitution (defines rules for all agents)
-/specflow.constitution
+/claudecraft.constitution
 # Set your tech stack, code standards, testing requirements, architecture
 
 # 3. Ingest your existing document
-/specflow.ingest my-requirements.md
+/claudecraft.ingest my-requirements.md
 # This creates specs/{spec-id}/ with your document as BRD or PRD
 
 # 4. Generate technical specification (human approval gate)
-/specflow.specify {spec-id}
+/claudecraft.specify {spec-id}
 # Review the generated spec.md - approve or request changes
 
 # 5. Create implementation plan
-/specflow.plan {spec-id}
+/claudecraft.plan {spec-id}
 # Generates plan.md with architecture decisions
 
 # 6. Decompose into executable tasks
-/specflow.tasks {spec-id}
+/claudecraft.tasks {spec-id}
 # Creates tasks directly in database with dependencies
 
 # 7. Start autonomous implementation
-/specflow.implement {spec-id}
-# Agents work in parallel - monitor in TUI with 'specflow tui'
+/claudecraft.implement {spec-id}
+# Agents work in parallel - monitor in TUI with 'claudecraft tui'
 ```
 
 **Quick Start (minimal commands):**
 
 ```bash
-specflow init
-/specflow.constitution
-/specflow.ingest path/to/requirements.md
-/specflow.specify {spec-id}   # Review & approve
-/specflow.plan {spec-id}
-/specflow.tasks {spec-id}
-/specflow.implement {spec-id}
+claudecraft init
+/claudecraft.constitution
+/claudecraft.ingest path/to/requirements.md
+/claudecraft.specify {spec-id}   # Review & approve
+/claudecraft.plan {spec-id}
+/claudecraft.tasks {spec-id}
+/claudecraft.implement {spec-id}
 ```
 
 **Tips:**
 
 - The constitution is critical — spend time defining your standards upfront
 - Press `t` in the TUI to see the task swimlane board
-- Use `specflow status` to check project state at any time
+- Use `claudecraft status` to check project state at any time
 - Tasks flow through: Todo → Implementing → Testing → Reviewing → Done
 
 ### Example 9: Onboarding an Existing Project
 
-Have an existing codebase with code already written? Maybe some PRDs floating around, but no formal specs or task tracking? Here's how to onboard it into SpecFlow:
+Have an existing codebase with code already written? Maybe some PRDs floating around, but no formal specs or task tracking? Here's how to onboard it into ClaudeCraft:
 
 ```bash
-# 1. Initialize SpecFlow in your existing project
+# 1. Initialize ClaudeCraft in your existing project
 cd my-existing-project
-specflow init
+claudecraft init
 
 # 2. Configure your constitution - THIS IS CRITICAL
 #    The constitution must reflect your EXISTING patterns
-/specflow.constitution
+/claudecraft.constitution
 #
 # During the interactive setup, be sure to specify:
 # - Your existing tech stack (languages, frameworks already in use)
@@ -730,26 +730,26 @@ specflow init
 # The AI agents will follow these rules and match your existing code style.
 
 # 3. If you have existing PRDs or requirements docs, ingest them
-/specflow.ingest docs/existing-prd.md
-/specflow.ingest docs/feature-requirements.md
+/claudecraft.ingest docs/existing-prd.md
+/claudecraft.ingest docs/feature-requirements.md
 # Each becomes a spec that can be planned and implemented
 
 # 4. For new features without docs, create specs interactively
-/specflow.brd
+/claudecraft.brd
 # Or jump straight to PRD if you know what you want:
-/specflow.prd
+/claudecraft.prd
 
 # 5. Generate technical specs (review these carefully!)
-/specflow.specify {spec-id}
+/claudecraft.specify {spec-id}
 # The architect agent will analyze your existing codebase
 # and create specs that fit your established patterns
 
 # 6. Plan and create tasks
-/specflow.plan {spec-id}
-/specflow.tasks {spec-id}
+/claudecraft.plan {spec-id}
+/claudecraft.tasks {spec-id}
 
 # 7. Let agents implement (they'll follow your existing patterns)
-/specflow.implement {spec-id}
+/claudecraft.implement {spec-id}
 ```
 
 **Key considerations for existing projects:**
@@ -816,7 +816,7 @@ Each task flows through specialized agents with automatic retry and escalation.
 
 ```
 project/
-├── .specflow/
+├── .claudecraft/
 │   ├── config.yaml          # Configuration
 │   ├── database.db          # SQLite database
 │   └── memory/              # Cross-session memory
@@ -836,7 +836,7 @@ project/
 
 ## Configuration
 
-Edit `.specflow/config.yaml`:
+Edit `.claudecraft/config.yaml`:
 
 ```yaml
 project:
@@ -864,7 +864,7 @@ execution:
   worktree_dir: .worktrees # Directory for task worktrees
 
 database:
-  path: .specflow/specflow.db
+  path: .claudecraft/claudecraft.db
   sync_jsonl: true # Enable JSONL sync for git collaboration
 
 hooks:
@@ -911,11 +911,11 @@ ralph:
 uv run pytest
 
 # Type checking
-uv run mypy src/specflow
+uv run mypy src/claudecraft
 
 # Linting & formatting
-uv run ruff check src/specflow
-uv run ruff format src/specflow
+uv run ruff check src/claudecraft
+uv run ruff format src/claudecraft
 ```
 
 ## Troubleshooting
@@ -924,19 +924,19 @@ uv run ruff format src/specflow
 
 ```bash
 # Reinstall and update templates
-pipx install --force /path/to/specflow
-specflow init --update
+pipx install --force /path/to/claudecraft
+claudecraft init --update
 ```
 
 ### Agent status not showing
 
-Ensure agents call `specflow agent-start` and `specflow agent-stop` commands.
+Ensure agents call `claudecraft agent-start` and `claudecraft agent-stop` commands.
 
 ### Worktree issues
 
 ```bash
-specflow worktree-list              # See all worktrees
-specflow worktree-remove <id> --force  # Force remove
+claudecraft worktree-list              # See all worktrees
+claudecraft worktree-remove <id> --force  # Force remove
 git worktree prune                  # Clean up git references
 ```
 

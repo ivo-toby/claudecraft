@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from specflow.speckit.wrapper import SpecKitWrapper
+from claudecraft.speckit.wrapper import SpecKitWrapper
 
 
 class TestSpecKitWrapper:

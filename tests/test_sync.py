@@ -4,8 +4,8 @@ from datetime import datetime
 
 import pytest
 
-from specflow.core.database import Database, Spec, SpecStatus, Task, TaskStatus
-from specflow.core.sync import ChangeRecord, ChangeType, JsonlSync, SyncedDatabase
+from claudecraft.core.database import Database, Spec, SpecStatus, Task, TaskStatus
+from claudecraft.core.sync import ChangeRecord, ChangeType, JsonlSync, SyncedDatabase
 
 
 class TestChangeRecord:

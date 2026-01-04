@@ -1,8 +1,8 @@
-# SpecFlow Project
+# ClaudeCraft Project
 
 ## What This Is
 
-SpecFlow is a TUI-based spec-driven development orchestrator that unifies GitHub SpecKit, Beads patterns, and Auto-Claude execution capabilities. It enables BRD/PRD ingestion → human-validated specs → fully autonomous implementation.
+ClaudeCraft is a TUI-based spec-driven development orchestrator that unifies GitHub SpecKit, Beads patterns, and Auto-Claude execution capabilities. It enables BRD/PRD ingestion → human-validated specs → fully autonomous implementation.
 
 ## Tech Stack
 
@@ -23,7 +23,7 @@ SpecFlow is a TUI-based spec-driven development orchestrator that unifies GitHub
 
 ## Directory Structure
 
-- .specflow/: Configuration and database
+- .claudecraft/: Configuration and database
 - specs/{spec-id}/: Specification documents
 - .claude/agents/: Sub-agent definitions
 - .claude/commands/: Slash commands
@@ -43,7 +43,7 @@ Phase 1: Foundation
 
 ## Commands
 
-- /specflow.init: Initialize project
-- /specflow.ingest: Import BRD/PRD
-- /specflow.specify: Generate specification
-- /specflow.implement: Execute implementation
+- /claudecraft.init: Initialize project
+- /claudecraft.ingest: Import BRD/PRD
+- /claudecraft.specify: Generate specification
+- /claudecraft.implement: Execute implementation

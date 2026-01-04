@@ -1,1 +1,1 @@
-"""Tests for SpecFlow."""
+"""Tests for ClaudeCraft."""

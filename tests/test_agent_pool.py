@@ -2,8 +2,8 @@
 
 import pytest
 
-from specflow.orchestration.agent_pool import AgentPool, AgentSlot, AgentType
-from specflow.core.database import Task, TaskStatus
+from claudecraft.orchestration.agent_pool import AgentPool, AgentSlot, AgentType
+from claudecraft.core.database import Task, TaskStatus
 from datetime import datetime
 
 
