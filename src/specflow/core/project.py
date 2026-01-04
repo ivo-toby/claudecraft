@@ -332,41 +332,128 @@ class Project:
 
 _CONSTITUTION_TEMPLATE = """# Project Constitution
 
+> **IMPORTANT**: Customize this file before starting work. These rules guide all AI agents
+> throughout the entire development lifecycle - from requirements to implementation.
+
 ## Identity
 
 - Project: {project_name}
-- Purpose: [Define your project's purpose]
+- Purpose: [Define your project's purpose - what problem does it solve?]
+- Target Users: [Who will use this?]
 - Created: [Date]
 
-## Immutable Principles
+---
+
+## Requirements Phase (BRD/PRD)
+
+### Business Requirements (BRD)
+
+- [Define stakeholder priorities - what matters most?]
+- [Define success metrics - how do we measure value?]
+- [Define constraints - budget, timeline, regulatory?]
+- [Define non-negotiables - must-have vs nice-to-have?]
+
+### Product Requirements (PRD)
+
+- [User experience principles - what should it feel like?]
+- [Feature prioritization rules - how to rank features?]
+- [Scope boundaries - what's explicitly out of scope?]
+- [Compatibility requirements - browsers, devices, integrations?]
+
+---
+
+## Specification Phase
+
+### Specification Quality
+
+- Specs must include acceptance criteria for every feature
+- Specs must define error handling and edge cases
+- Specs must reference existing patterns in codebase
+- Specs require human approval before implementation
+
+### Technical Decisions
+
+- [Define your tech stack - languages, frameworks, libraries]
+- [Define your data storage - database, caching, file storage]
+- [Define your API design - REST/GraphQL, versioning, auth]
+- [Define your deployment target - cloud provider, containerization]
+
+---
+
+## Task Generation
+
+### Task Decomposition
+
+- Tasks should be atomic and independently testable
+- Each task should take 1-4 hours of implementation time
+- Tasks must specify clear completion criteria
+- Dependencies between tasks must be explicit
+
+### Task Priorities
+
+- P1: Blocking other work or critical path
+- P2: Important but not blocking
+- P3: Nice to have, can be deferred
+
+### Follow-up Tasks
+
+- Agents should create TECH-DEBT tasks for shortcuts taken
+- Agents should create TEST-GAP tasks for missing coverage
+- Agents should create DOC tasks for undocumented features
+
+---
+
+## Implementation Phase
 
 ### Code Quality
 
 - All code must have tests (unit + integration minimum)
 - No code merges without passing CI
-- Follow existing patterns in codebase
+- Follow existing patterns and conventions in codebase
 - Documentation required for public APIs
+- [Define your code style - linting, formatting rules]
 
-### Architecture
+### Architecture Principles
 
-- [Define your tech stack decisions]
-- [Define your data storage choices]
-- [Define your API design principles]
+- [Define your architecture pattern - clean arch, hexagonal, etc.]
+- [Define your error handling strategy]
+- [Define your logging and observability approach]
+- [Define your security requirements - auth, encryption, etc.]
 
 ### Process
 
-- Specs require human approval before implementation
 - Implementation is fully autonomous after spec approval
-- All changes happen in isolated worktrees
-- QA validation required before merge
+- All changes happen in isolated git worktrees
+- Each stage (coder→reviewer→tester→qa) must pass before proceeding
+- QA validation required before merge to main
 
-## Constraints
+---
 
-- [Security requirements]
-- [Performance requirements]
-- [Compatibility requirements]
+## Constraints & Boundaries
 
-## Out of Scope
+### Security
 
-- [Explicit exclusions]
+- [Authentication requirements]
+- [Data protection requirements]
+- [Audit logging requirements]
+
+### Performance
+
+- [Response time requirements]
+- [Scalability requirements]
+- [Resource usage limits]
+
+### Compatibility
+
+- [Supported platforms/browsers]
+- [API versioning policy]
+- [Backwards compatibility requirements]
+
+---
+
+## Explicitly Out of Scope
+
+- [Features that should NOT be built]
+- [Approaches that should NOT be taken]
+- [Technologies that should NOT be used]
 """

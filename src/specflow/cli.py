@@ -556,11 +556,14 @@ def cmd_init(path: Path, update: bool = False, json_output: bool = False) -> int
     """Initialize a new SpecFlow project."""
     try:
         project = Project.init(path, update_templates=update)
+        constitution_path = project.root / ".specflow" / "constitution.md"
+
         if json_output:
             result = {
                 "success": True,
                 "project_root": str(project.root),
                 "config_path": str(project.config.config_path),
+                "constitution_path": str(constitution_path),
                 "templates_updated": update,
             }
             print(json.dumps(result, indent=2))
@@ -569,6 +572,23 @@ def cmd_init(path: Path, update: bool = False, json_output: bool = False) -> int
                 print(f"Updated SpecFlow templates at {project.root}")
             else:
                 print(f"Initialized SpecFlow project at {project.root}")
+                print()
+                print("=" * 60)
+                print("IMPORTANT: Configure your project constitution")
+                print("=" * 60)
+                print()
+                print(f"Edit: .specflow/constitution.md")
+                print()
+                print("The constitution defines ground rules for ALL phases:")
+                print("  - Requirements (BRD/PRD creation)")
+                print("  - Specification (technical decisions)")
+                print("  - Task generation (decomposition rules)")
+                print("  - Implementation (code quality, architecture)")
+                print()
+                print("AI agents will follow these rules throughout development.")
+                print("Take time to customize it before starting work.")
+                print()
+                print("=" * 60)
         return 0
     except Exception as e:
         if json_output:
