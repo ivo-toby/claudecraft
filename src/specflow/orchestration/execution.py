@@ -1,6 +1,7 @@
 """Execution pipeline for task orchestration using Claude Code headless mode."""
 
 import json
+import logging
 import os
 import subprocess
 import time
@@ -9,9 +10,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from specflow.core.database import Task, TaskStatus
+from specflow.core.database import CompletionCriteria, Task, TaskStatus, VerificationMethod
 from specflow.core.project import Project
 from specflow.orchestration.agent_pool import AgentPool, AgentType
+from specflow.orchestration.ralph import (
+    RalphLoop,
+    RalphLoopConfig,
+    VerificationResult,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -33,6 +41,10 @@ class ExecutionResult:
     duration_ms: int
     issues: list[str]
     session_id: str | None = None
+    # Ralph loop results
+    ralph_iterations: int = 0
+    ralph_verified: bool = False
+    verification_result: VerificationResult | None = None
 
 
 # Map agent types to their specflow agent names
@@ -72,6 +84,7 @@ class ExecutionPipeline:
         agent_pool: AgentPool,
         claude_path: str = "claude",
         timeout: int = 600,
+        ralph_config: RalphLoopConfig | None = None,
     ):
         """Initialize execution pipeline.
 
@@ -80,6 +93,7 @@ class ExecutionPipeline:
             agent_pool: Agent pool for managing concurrent agents
             claude_path: Path to claude CLI (default: "claude")
             timeout: Timeout in seconds for each agent execution (default: 600)
+            ralph_config: Optional Ralph loop configuration (uses project config if None)
         """
         self.project = project
         self.agent_pool = agent_pool
@@ -87,71 +101,78 @@ class ExecutionPipeline:
         self.max_total_iterations = 10
         self.claude_path = claude_path
         self.timeout = timeout
+        self.ralph_config = ralph_config or self._get_ralph_config()
 
-    def execute_task(self, task: Task, worktree_path: Path) -> bool:
+    def execute_task(
+        self,
+        task: Task,
+        worktree_path: Path,
+        use_ralph: bool | None = None,
+    ) -> bool:
         """
         Execute a task through the full pipeline.
 
         Args:
             task: Task to execute
             worktree_path: Path to the task's worktree
+            use_ralph: Override for Ralph loop usage (None = use config setting)
 
         Returns:
             True if task completed successfully, False otherwise
         """
+        # Determine whether to use Ralph loops
+        ralph_enabled = use_ralph if use_ralph is not None else self.ralph_config.enabled
+
         total_iterations = 0
 
         for stage in self.pipeline:
-            success = False
-            iteration = 0
+            # Register agent in database for TUI visibility
+            self.project.db.register_agent(
+                task_id=task.id,
+                agent_type=stage.agent_type.value,
+                worktree=str(worktree_path),
+            )
 
-            while iteration < stage.max_iterations and total_iterations < self.max_total_iterations:
-                iteration += 1
-                total_iterations += 1
+            # Update task status
+            task.status = self._get_stage_status(stage.agent_type)
+            self.project.db.update_task(task)
 
-                # Register agent in database for TUI visibility
-                self.project.db.register_agent(
-                    task_id=task.id,
-                    agent_type=stage.agent_type.value,
-                    worktree=str(worktree_path),
-                )
-
-                # Update task status
-                task.status = self._get_stage_status(stage.agent_type)
-                task.iteration = total_iterations
-                self.project.db.update_task(task)
-
-                try:
-                    # Execute stage with real Claude Code
-                    result = self._execute_stage(task, stage, worktree_path, iteration)
-                finally:
-                    # Deregister agent
-                    self.project.db.deregister_agent(task_id=task.id)
-
-                # Log execution
-                self.project.db.log_execution(
-                    task_id=task.id,
-                    agent_type=stage.agent_type.value,
-                    action=stage.name,
-                    output=result.output[:10000],  # Truncate long output
-                    success=result.success,
-                    duration_ms=result.duration_ms,
-                )
-
-                if result.success:
-                    success = True
-                    break
-
-                # If failed, check if we should retry
-                if iteration >= stage.max_iterations:
-                    # Max iterations reached for this stage - reset to todo
-                    task.status = TaskStatus.TODO
-                    task.metadata["failure_stage"] = stage.name
-                    task.metadata["failure_reason"] = result.output[:1000]
+            try:
+                if ralph_enabled and task.completion_spec:
+                    # Use Ralph loop execution for tasks with completion specs
+                    result = self.execute_stage_with_ralph(task, stage, worktree_path)
+                    total_iterations += result.ralph_iterations or 1
+                    task.iteration = total_iterations
                     self.project.db.update_task(task)
-                    return False
 
-            if not success:
+                    # Log final result (individual iterations logged inside ralph method)
+                    if not result.ralph_verified:
+                        self.project.db.log_execution(
+                            task_id=task.id,
+                            agent_type=stage.agent_type.value,
+                            action=f"{stage.name} (Ralph final)",
+                            output=result.output[:10000],
+                            success=result.success,
+                            duration_ms=result.duration_ms,
+                        )
+                else:
+                    # Use traditional iteration-based execution
+                    result = self._execute_stage_traditional(
+                        task, stage, worktree_path, total_iterations
+                    )
+                    total_iterations = result.iteration  # Update total from result
+            finally:
+                # Deregister agent
+                self.project.db.deregister_agent(task_id=task.id)
+
+            if not result.success:
+                # Stage failed - reset to todo
+                task.status = TaskStatus.TODO
+                task.metadata["failure_stage"] = stage.name
+                task.metadata["failure_reason"] = result.output[:1000]
+                if result.ralph_iterations > 0:
+                    task.metadata["ralph_iterations"] = result.ralph_iterations
+                self.project.db.update_task(task)
                 return False
 
         # All stages passed
@@ -159,6 +180,73 @@ class ExecutionPipeline:
         task.updated_at = datetime.now()
         self.project.db.update_task(task)
         return True
+
+    def _execute_stage_traditional(
+        self,
+        task: Task,
+        stage: PipelineStage,
+        worktree_path: Path,
+        total_iterations: int,
+    ) -> ExecutionResult:
+        """Execute a stage using traditional iteration-based approach.
+
+        This is the original execution logic, used when Ralph is disabled
+        or the task has no completion spec.
+
+        Args:
+            task: Task to execute
+            stage: Pipeline stage
+            worktree_path: Path to worktree
+            total_iterations: Current total iteration count
+
+        Returns:
+            ExecutionResult from the last iteration
+        """
+        iteration = 0
+        last_result: ExecutionResult | None = None
+
+        while iteration < stage.max_iterations and total_iterations < self.max_total_iterations:
+            iteration += 1
+            total_iterations += 1
+
+            # Update task iteration
+            task.iteration = total_iterations
+            self.project.db.update_task(task)
+
+            # Execute stage
+            result = self._execute_stage(task, stage, worktree_path, iteration)
+            last_result = result
+
+            # Log execution
+            self.project.db.log_execution(
+                task_id=task.id,
+                agent_type=stage.agent_type.value,
+                action=stage.name,
+                output=result.output[:10000],
+                success=result.success,
+                duration_ms=result.duration_ms,
+            )
+
+            if result.success:
+                # Update result with final total_iterations
+                return ExecutionResult(
+                    success=True,
+                    iteration=total_iterations,
+                    output=result.output,
+                    duration_ms=result.duration_ms,
+                    issues=result.issues,
+                    session_id=result.session_id,
+                )
+
+        # Max iterations reached - return failure
+        return ExecutionResult(
+            success=False,
+            iteration=total_iterations,
+            output=last_result.output if last_result else "No output",
+            duration_ms=last_result.duration_ms if last_result else 0,
+            issues=last_result.issues if last_result else ["Max iterations reached"],
+            session_id=last_result.session_id if last_result else None,
+        )
 
     def _execute_stage(
         self, task: Task, stage: PipelineStage, worktree_path: Path, iteration: int
@@ -486,4 +574,261 @@ Output one of:
             "max_total_iterations": self.max_total_iterations,
             "claude_path": self.claude_path,
             "timeout": self.timeout,
+            "ralph_enabled": self.ralph_config.enabled if self.ralph_config else False,
         }
+
+    # =========================================================================
+    # Ralph Loop Integration Methods
+    # =========================================================================
+
+    def _get_ralph_config(self) -> RalphLoopConfig:
+        """Get Ralph loop configuration from project config.
+
+        Returns:
+            RalphLoopConfig built from project configuration
+        """
+        ralph_dict = self.project.config.ralph.to_dict()
+        return RalphLoopConfig.from_dict(ralph_dict)
+
+    def _get_completion_criteria(
+        self, task: Task, agent_type: AgentType
+    ) -> CompletionCriteria | None:
+        """Get completion criteria for a task/agent combination.
+
+        First checks task-specific criteria, then falls back to building
+        default criteria based on the task's acceptance criteria.
+
+        Args:
+            task: The task being executed
+            agent_type: The agent type
+
+        Returns:
+            CompletionCriteria if found or built, None if Ralph is disabled
+        """
+        if not self.ralph_config or not self.ralph_config.enabled:
+            return None
+
+        # Try task-specific criteria first
+        if task.completion_spec:
+            criteria = task.completion_spec.get_criteria_for_agent(agent_type.value)
+            if criteria:
+                return criteria
+
+        # Build default criteria based on acceptance criteria
+        return self._build_default_criteria(task, agent_type)
+
+    def _build_default_criteria(
+        self, task: Task, agent_type: AgentType
+    ) -> CompletionCriteria:
+        """Build default completion criteria from task acceptance criteria.
+
+        Args:
+            task: The task
+            agent_type: The agent type
+
+        Returns:
+            Default CompletionCriteria based on agent type
+        """
+        default_promises = {
+            AgentType.ARCHITECT: "DESIGN_COMPLETE",
+            AgentType.CODER: "IMPLEMENTATION_COMPLETE",
+            AgentType.REVIEWER: "REVIEW_PASSED",
+            AgentType.TESTER: "TESTS_PASSED",
+            AgentType.QA: "QA_PASSED",
+        }
+
+        default_methods = {
+            AgentType.ARCHITECT: VerificationMethod.STRING_MATCH,
+            AgentType.CODER: VerificationMethod.EXTERNAL,
+            AgentType.REVIEWER: VerificationMethod.SEMANTIC,
+            AgentType.TESTER: VerificationMethod.EXTERNAL,
+            AgentType.QA: VerificationMethod.MULTI_STAGE,
+        }
+
+        # Build verification config from task acceptance criteria
+        verification_config: dict[str, Any] = {}
+        method = default_methods.get(agent_type, VerificationMethod.STRING_MATCH)
+
+        if task.completion_spec and task.completion_spec.acceptance_criteria:
+            if method == VerificationMethod.SEMANTIC:
+                verification_config["check_for"] = task.completion_spec.acceptance_criteria
+            elif method == VerificationMethod.MULTI_STAGE:
+                # Build multi-stage config with semantic check for acceptance criteria
+                verification_config["stages"] = [
+                    {
+                        "name": "acceptance_check",
+                        "method": "semantic",
+                        "config": {"check_for": task.completion_spec.acceptance_criteria},
+                        "required": True,
+                    }
+                ]
+
+        return CompletionCriteria(
+            promise=default_promises.get(agent_type, "STAGE_COMPLETE"),
+            description=f"Complete {agent_type.value} stage for: {task.title}",
+            verification_method=method,
+            verification_config=verification_config,
+        )
+
+    def _build_ralph_prompt(
+        self,
+        task: Task,
+        stage: PipelineStage,
+        worktree_path: Path,
+        ralph: RalphLoop,
+    ) -> str:
+        """Build prompt with Ralph loop requirements.
+
+        Extends the base agent prompt with completion criteria and
+        iteration status from the Ralph loop.
+
+        Args:
+            task: The task being executed
+            stage: Current pipeline stage
+            worktree_path: Path to worktree
+            ralph: Active RalphLoop instance
+
+        Returns:
+            Complete prompt string with Ralph section
+        """
+        # Get base prompt (uses ralph.current_iteration for iteration number)
+        base_prompt = self._build_agent_prompt(
+            task, stage, worktree_path, ralph.current_iteration
+        )
+
+        # Add Ralph loop section
+        ralph_section = ralph.build_prompt_section(task)
+
+        return base_prompt + ralph_section
+
+    def execute_stage_with_ralph(
+        self,
+        task: Task,
+        stage: PipelineStage,
+        worktree_path: Path,
+    ) -> ExecutionResult:
+        """Execute a pipeline stage with Ralph loop verification.
+
+        This method wraps _execute_stage in a Ralph verification loop,
+        continuing until completion is verified or max iterations reached.
+
+        Args:
+            task: Task to execute
+            stage: Pipeline stage to execute
+            worktree_path: Path to worktree
+
+        Returns:
+            ExecutionResult with Ralph-specific fields populated
+        """
+        start_time = time.time()
+
+        # Get completion criteria for this stage
+        criteria = self._get_completion_criteria(task, stage.agent_type)
+
+        # If no criteria or Ralph disabled, fall back to regular execution
+        if not criteria or not self.ralph_config.enabled:
+            return self._execute_stage(task, stage, worktree_path, 1)
+
+        # Create Ralph loop
+        ralph = RalphLoop(self.ralph_config, self.project)
+
+        try:
+            ralph.start(task, stage.agent_type.value, criteria)
+        except ValueError as e:
+            # Ralph disabled
+            logger.debug(f"Ralph loop not started: {e}")
+            return self._execute_stage(task, stage, worktree_path, 1)
+
+        all_outputs: list[str] = []
+        last_result: ExecutionResult | None = None
+        last_session_id: str | None = None
+
+        while True:
+            ralph.increment()
+
+            # Build prompt with Ralph requirements
+            prompt = self._build_ralph_prompt(task, stage, worktree_path, ralph)
+
+            # Get allowed tools and model
+            allowed_tools = AGENT_ALLOWED_TOOLS.get(stage.agent_type, "Read,Grep,Glob")
+            model = self.project.config.get_agent_model(stage.agent_type.value)
+
+            # Run Claude Code
+            output, session_id, cli_success = self._run_claude_headless(
+                prompt=prompt,
+                working_dir=worktree_path,
+                allowed_tools=allowed_tools,
+                agent_type=stage.agent_type,
+                model=model,
+            )
+
+            all_outputs.append(output)
+            last_session_id = session_id
+
+            # Log this iteration
+            self._log_ralph_iteration(task, stage, ralph, output, cli_success)
+
+            # Check if we should continue
+            should_continue, reason = ralph.should_continue(output, worktree_path)
+
+            if not should_continue:
+                # Loop finished - determine success
+                ralph_result = ralph.finish()
+                success = ralph_result["success"]
+
+                duration_ms = int((time.time() - start_time) * 1000)
+
+                # Get last verification result if available
+                verification_result = None
+                if ralph.state and ralph.state.last_verification:
+                    # Ralph loop already finished, so we need to get from result
+                    pass
+
+                issues = []
+                if not success:
+                    issues = self._extract_issues(output)
+                    issues.append(f"Ralph verification: {reason}")
+
+                return ExecutionResult(
+                    success=success,
+                    iteration=ralph_result["iterations"],
+                    output="\n---\n".join(all_outputs),
+                    duration_ms=duration_ms,
+                    issues=issues,
+                    session_id=last_session_id,
+                    ralph_iterations=ralph_result["iterations"],
+                    ralph_verified=success,
+                )
+
+    def _log_ralph_iteration(
+        self,
+        task: Task,
+        stage: PipelineStage,
+        ralph: RalphLoop,
+        output: str,
+        success: bool,
+    ) -> None:
+        """Log a Ralph loop iteration.
+
+        Args:
+            task: The task being executed
+            stage: Current pipeline stage
+            ralph: Active RalphLoop instance
+            output: Output from this iteration
+            success: Whether CLI execution succeeded
+        """
+        if ralph.state:
+            logger.info(
+                f"Ralph iteration {ralph.state.iteration}/{ralph.state.max_iterations} "
+                f"for task {task.id} stage {stage.name}"
+            )
+
+            # Log to database
+            self.project.db.log_execution(
+                task_id=task.id,
+                agent_type=stage.agent_type.value,
+                action=f"{stage.name} (Ralph iter {ralph.state.iteration})",
+                output=output[:5000],  # Truncate for logging
+                success=success,
+                duration_ms=0,  # Duration tracked at loop level
+            )

@@ -650,3 +650,438 @@ class TestCheckStageSuccess:
         """Test that short output without indicators is considered failure."""
         output = "short"
         assert pipeline._check_stage_success(None, output) is False
+
+
+# =============================================================================
+# Phase 4 Tests: Ralph Loop Integration
+# =============================================================================
+
+from specflow.core.database import (
+    CompletionCriteria,
+    TaskCompletionSpec,
+    VerificationMethod,
+)
+from specflow.orchestration.ralph import RalphLoop, RalphLoopConfig
+
+
+@pytest.fixture
+def sample_task_with_spec(project):
+    """Create a sample task with completion spec."""
+    from specflow.core.database import Spec, SpecStatus
+
+    spec = Spec(
+        id="spec-ralph",
+        title="Ralph Test Spec",
+        status=SpecStatus.APPROVED,
+        source_type=None,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        metadata={},
+    )
+    project.db.create_spec(spec)
+
+    # Create completion spec with all agent types using STRING_MATCH
+    # so tests can verify easily
+    completion_spec = TaskCompletionSpec(
+        outcome="Feature implemented correctly",
+        acceptance_criteria=["Tests pass", "Code reviewed"],
+        coder=CompletionCriteria(
+            promise="CODER_COMPLETE",
+            description="Implementation done",
+            verification_method=VerificationMethod.STRING_MATCH,
+        ),
+        reviewer=CompletionCriteria(
+            promise="REVIEW_OK",
+            description="Code review passed",
+            verification_method=VerificationMethod.STRING_MATCH,
+        ),
+        tester=CompletionCriteria(
+            promise="TESTS_OK",
+            description="Tests passed",
+            verification_method=VerificationMethod.STRING_MATCH,
+        ),
+        qa=CompletionCriteria(
+            promise="QA_OK",
+            description="QA passed",
+            verification_method=VerificationMethod.STRING_MATCH,
+        ),
+    )
+
+    task = Task(
+        id="task-ralph-1",
+        spec_id="spec-ralph",
+        title="Ralph test task",
+        description="Test task for Ralph integration",
+        status=TaskStatus.TODO,
+        priority=1,
+        dependencies=[],
+        assignee=None,
+        worktree=None,
+        metadata={},
+        iteration=0,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        completion_spec=completion_spec,
+    )
+    project.db.create_task(task)
+    return task
+
+
+class TestRalphConfig:
+    """Tests for Ralph configuration in ExecutionPipeline."""
+
+    def test_pipeline_has_ralph_config(self, pipeline):
+        """Test that pipeline has Ralph configuration."""
+        assert pipeline.ralph_config is not None
+        assert isinstance(pipeline.ralph_config, RalphLoopConfig)
+
+    def test_ralph_config_from_project(self, project, agent_pool):
+        """Test that Ralph config is loaded from project config."""
+        pipeline = ExecutionPipeline(project, agent_pool)
+
+        assert pipeline.ralph_config.enabled == project.config.ralph.enabled
+        assert pipeline.ralph_config.max_iterations == project.config.ralph.max_iterations
+
+    def test_custom_ralph_config(self, project, agent_pool):
+        """Test using custom Ralph configuration."""
+        custom_config = RalphLoopConfig(enabled=False, max_iterations=5)
+        pipeline = ExecutionPipeline(project, agent_pool, ralph_config=custom_config)
+
+        assert pipeline.ralph_config.enabled is False
+        assert pipeline.ralph_config.max_iterations == 5
+
+    def test_get_pipeline_info_includes_ralph(self, pipeline):
+        """Test that pipeline info includes Ralph status."""
+        info = pipeline.get_pipeline_info()
+        assert "ralph_enabled" in info
+
+
+class TestGetCompletionCriteria:
+    """Tests for _get_completion_criteria method."""
+
+    def test_get_criteria_from_task_spec(self, pipeline, sample_task_with_spec):
+        """Test getting criteria from task completion spec."""
+        criteria = pipeline._get_completion_criteria(
+            sample_task_with_spec, AgentType.CODER
+        )
+
+        assert criteria is not None
+        assert criteria.promise == "CODER_COMPLETE"
+
+    def test_get_criteria_fallback_to_default(self, pipeline, sample_task):
+        """Test falling back to default criteria when task has no spec."""
+        # Ensure Ralph is enabled
+        pipeline.ralph_config = RalphLoopConfig(enabled=True)
+
+        criteria = pipeline._get_completion_criteria(sample_task, AgentType.CODER)
+
+        assert criteria is not None
+        assert criteria.promise == "IMPLEMENTATION_COMPLETE"
+
+    def test_get_criteria_returns_none_when_disabled(self, pipeline, sample_task_with_spec):
+        """Test returns None when Ralph is disabled."""
+        pipeline.ralph_config = RalphLoopConfig(enabled=False)
+
+        criteria = pipeline._get_completion_criteria(
+            sample_task_with_spec, AgentType.CODER
+        )
+
+        assert criteria is None
+
+    def test_get_criteria_for_different_agents(self, pipeline, sample_task_with_spec):
+        """Test getting criteria for different agent types."""
+        coder_criteria = pipeline._get_completion_criteria(
+            sample_task_with_spec, AgentType.CODER
+        )
+        reviewer_criteria = pipeline._get_completion_criteria(
+            sample_task_with_spec, AgentType.REVIEWER
+        )
+
+        assert coder_criteria.promise == "CODER_COMPLETE"
+        assert reviewer_criteria.promise == "REVIEW_OK"
+
+
+class TestBuildDefaultCriteria:
+    """Tests for _build_default_criteria method."""
+
+    def test_build_default_coder_criteria(self, pipeline, sample_task):
+        """Test building default criteria for coder."""
+        criteria = pipeline._build_default_criteria(sample_task, AgentType.CODER)
+
+        assert criteria.promise == "IMPLEMENTATION_COMPLETE"
+        assert criteria.verification_method == VerificationMethod.EXTERNAL
+
+    def test_build_default_reviewer_criteria(self, pipeline, sample_task):
+        """Test building default criteria for reviewer."""
+        criteria = pipeline._build_default_criteria(sample_task, AgentType.REVIEWER)
+
+        assert criteria.promise == "REVIEW_PASSED"
+        assert criteria.verification_method == VerificationMethod.SEMANTIC
+
+    def test_build_default_tester_criteria(self, pipeline, sample_task):
+        """Test building default criteria for tester."""
+        criteria = pipeline._build_default_criteria(sample_task, AgentType.TESTER)
+
+        assert criteria.promise == "TESTS_PASSED"
+        assert criteria.verification_method == VerificationMethod.EXTERNAL
+
+    def test_build_default_qa_criteria(self, pipeline, sample_task):
+        """Test building default criteria for QA."""
+        criteria = pipeline._build_default_criteria(sample_task, AgentType.QA)
+
+        assert criteria.promise == "QA_PASSED"
+        assert criteria.verification_method == VerificationMethod.MULTI_STAGE
+
+    def test_default_criteria_includes_acceptance(self, pipeline, sample_task_with_spec):
+        """Test default criteria includes acceptance criteria."""
+        criteria = pipeline._build_default_criteria(
+            sample_task_with_spec, AgentType.REVIEWER
+        )
+
+        assert "check_for" in criteria.verification_config
+        assert "Tests pass" in criteria.verification_config["check_for"]
+
+
+class TestBuildRalphPrompt:
+    """Tests for _build_ralph_prompt method."""
+
+    def test_build_ralph_prompt(self, pipeline, sample_task_with_spec):
+        """Test building prompt with Ralph section."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = Path("/tmp/test")
+
+        # Create and start a Ralph loop
+        ralph = RalphLoop(pipeline.ralph_config, pipeline.project)
+        ralph.start(sample_task_with_spec, "coder")
+        ralph.increment()
+
+        prompt = pipeline._build_ralph_prompt(
+            sample_task_with_spec, stage, worktree_path, ralph
+        )
+
+        # Should include base prompt content
+        assert "specflow-coder" in prompt
+        assert sample_task_with_spec.title in prompt
+
+        # Should include Ralph section
+        assert "Ralph Loop Status" in prompt
+        assert "CODER_COMPLETE" in prompt
+        assert "Feature implemented correctly" in prompt
+
+    def test_ralph_prompt_includes_iteration(self, pipeline, sample_task_with_spec):
+        """Test that Ralph prompt includes iteration count."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = Path("/tmp/test")
+
+        ralph = RalphLoop(pipeline.ralph_config, pipeline.project)
+        ralph.start(sample_task_with_spec, "coder")
+        ralph.increment()
+        ralph.increment()  # Now at iteration 2
+
+        prompt = pipeline._build_ralph_prompt(
+            sample_task_with_spec, stage, worktree_path, ralph
+        )
+
+        assert "2/" in prompt  # Should show "2/10" or similar
+
+
+class TestExecuteStageWithRalph:
+    """Tests for execute_stage_with_ralph method."""
+
+    def test_execute_with_ralph_success(self, pipeline, sample_task_with_spec, tmp_path):
+        """Test successful execution with Ralph verification."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        # Mock Claude to return successful output with promise
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = json.dumps({
+                "result": "Done! <promise>CODER_COMPLETE</promise>"
+            })
+            result.stderr = ""
+            return result
+
+        with patch("subprocess.run", side_effect=mock_run):
+            result = pipeline.execute_stage_with_ralph(
+                sample_task_with_spec, stage, worktree_path
+            )
+
+        assert result.success is True
+        assert result.ralph_verified is True
+        assert result.ralph_iterations >= 1
+
+    def test_execute_with_ralph_max_iterations(self, pipeline, sample_task_with_spec, tmp_path):
+        """Test Ralph execution reaching max iterations."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        # Use a small max iteration for testing
+        pipeline.ralph_config = RalphLoopConfig(enabled=True, max_iterations=2)
+
+        # Mock Claude to return output without promise
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = "Still working on it..."
+            result.stderr = ""
+            return result
+
+        with patch("subprocess.run", side_effect=mock_run):
+            result = pipeline.execute_stage_with_ralph(
+                sample_task_with_spec, stage, worktree_path
+            )
+
+        assert result.success is False
+        assert result.ralph_iterations == 2
+
+    def test_execute_fallback_when_ralph_disabled(self, pipeline, sample_task_with_spec, tmp_path):
+        """Test fallback to regular execution when Ralph disabled."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        pipeline.ralph_config = RalphLoopConfig(enabled=False)
+
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = "IMPLEMENTATION COMPLETE"
+            result.stderr = ""
+            return result
+
+        with patch("subprocess.run", side_effect=mock_run):
+            result = pipeline.execute_stage_with_ralph(
+                sample_task_with_spec, stage, worktree_path
+            )
+
+        # Should succeed via regular execution
+        assert result.success is True
+        assert result.ralph_iterations == 0
+
+
+class TestExecuteTaskWithRalph:
+    """Tests for execute_task with Ralph integration."""
+
+    def test_execute_task_uses_ralph_when_enabled(
+        self, pipeline, sample_task_with_spec, tmp_path
+    ):
+        """Test that execute_task uses Ralph for tasks with completion specs."""
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        # Mock to return success with promise
+        call_count = [0]
+
+        def mock_run(*args, **kwargs):
+            call_count[0] += 1
+            result = MagicMock()
+            result.returncode = 0
+            # Find the prompt in args (it's passed via -p flag)
+            cmd = args[0]
+            prompt = ""
+            for i, arg in enumerate(cmd):
+                if arg == "-p" and i + 1 < len(cmd):
+                    prompt = cmd[i + 1]
+                    break
+
+            # Return appropriate promise for each stage
+            if "coder" in prompt.lower():
+                result.stdout = "Done! <promise>CODER_COMPLETE</promise>"
+            elif "reviewer" in prompt.lower():
+                result.stdout = "Done! <promise>REVIEW_OK</promise>"
+            elif "tester" in prompt.lower():
+                result.stdout = "Done! <promise>TESTS_OK</promise>"
+            elif "qa" in prompt.lower():
+                result.stdout = "Done! <promise>QA_OK</promise>"
+            else:
+                result.stdout = "PASS"
+            result.stderr = ""
+            return result
+
+        with patch("subprocess.run", side_effect=mock_run):
+            success = pipeline.execute_task(sample_task_with_spec, worktree_path)
+
+        assert success is True
+        task = pipeline.project.db.get_task(sample_task_with_spec.id)
+        assert task.status == TaskStatus.DONE
+
+    def test_execute_task_override_ralph(self, pipeline, sample_task_with_spec, tmp_path):
+        """Test overriding Ralph usage in execute_task."""
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = "PASS"
+            result.stderr = ""
+            return result
+
+        with patch("subprocess.run", side_effect=mock_run):
+            # Disable Ralph via parameter
+            success = pipeline.execute_task(
+                sample_task_with_spec, worktree_path, use_ralph=False
+            )
+
+        assert success is True
+
+    def test_execute_task_records_ralph_failure(
+        self, pipeline, sample_task_with_spec, tmp_path
+    ):
+        """Test that Ralph failure is recorded in task metadata."""
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        pipeline.ralph_config = RalphLoopConfig(enabled=True, max_iterations=1)
+
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = "No promise here"
+            result.stderr = ""
+            return result
+
+        with patch("subprocess.run", side_effect=mock_run):
+            success = pipeline.execute_task(sample_task_with_spec, worktree_path)
+
+        assert success is False
+        task = pipeline.project.db.get_task(sample_task_with_spec.id)
+        assert task.status == TaskStatus.TODO
+        assert "failure_stage" in task.metadata
+
+
+class TestExecutionResultWithRalph:
+    """Tests for ExecutionResult Ralph fields."""
+
+    def test_execution_result_default_ralph_fields(self):
+        """Test default Ralph fields in ExecutionResult."""
+        result = ExecutionResult(
+            success=True,
+            iteration=1,
+            output="Done",
+            duration_ms=100,
+            issues=[],
+        )
+
+        assert result.ralph_iterations == 0
+        assert result.ralph_verified is False
+        assert result.verification_result is None
+
+    def test_execution_result_with_ralph_fields(self):
+        """Test ExecutionResult with Ralph fields populated."""
+        result = ExecutionResult(
+            success=True,
+            iteration=3,
+            output="Done",
+            duration_ms=500,
+            issues=[],
+            ralph_iterations=3,
+            ralph_verified=True,
+        )
+
+        assert result.ralph_iterations == 3
+        assert result.ralph_verified is True
