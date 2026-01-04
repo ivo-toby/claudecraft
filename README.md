@@ -159,7 +159,19 @@ This creates:
 - `.claude/` — Agent definitions, skills, and commands
 - `.worktrees/` — Task execution environments (git-ignored)
 
-### 2. Launch the TUI
+### 2. Configure your constitution
+
+```bash
+/specflow.constitution
+```
+
+This interactive command helps you define ground rules for all AI agents:
+- Tech stack (languages, frameworks, databases)
+- Code quality standards (testing, linting, documentation)
+- Architecture patterns and principles
+- Security and performance requirements
+
+### 3. Launch the TUI
 
 ```bash
 specflow tui
@@ -180,7 +192,7 @@ specflow tui
 | `Ctrl+S` | Save current editor tab |
 | `r` | Refresh all panels |
 
-### 3. Create requirements (via Claude Code)
+### 4. Create requirements (via Claude Code)
 
 ```bash
 # Interactive BRD creation
@@ -193,19 +205,19 @@ specflow tui
 /specflow.ingest path/to/requirements.md
 ```
 
-### 4. Generate specification
+### 5. Generate specification
 
 ```bash
 /specflow.specify {spec-id}
 ```
 
-### 5. Create implementation tasks
+### 6. Create implementation tasks
 
 ```bash
 /specflow.tasks {spec-id}
 ```
 
-### 6. Execute autonomous implementation
+### 7. Execute autonomous implementation
 
 ```bash
 /specflow.implement {spec-id}

@@ -71,6 +71,7 @@ Complete workflow from idea to implementation:
 
 ### Project Setup
 - `/specflow.init` - Initialize SpecFlow project
+- `/specflow.constitution` - Create or update project constitution (ground rules for all agents)
 
 ## Key Principles
 
