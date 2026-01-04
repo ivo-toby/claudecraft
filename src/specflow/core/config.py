@@ -55,6 +55,33 @@ DEFAULT_CONFIG = {
         "generate_on_complete": False,
         "output_dir": "docs",
     },
+    "ralph": {
+        "enabled": True,
+        "max_iterations": 10,
+        "default_verification": "string_match",
+        "agent_defaults": {
+            "coder": {
+                "max_iterations": 15,
+                "promise": "IMPLEMENTATION_COMPLETE",
+                "verification": "external",
+            },
+            "reviewer": {
+                "max_iterations": 5,
+                "promise": "REVIEW_PASSED",
+                "verification": "semantic",
+            },
+            "tester": {
+                "max_iterations": 10,
+                "promise": "TESTS_PASSED",
+                "verification": "external",
+            },
+            "qa": {
+                "max_iterations": 5,
+                "promise": "QA_PASSED",
+                "verification": "multi_stage",
+            },
+        },
+    },
 }
 
 
@@ -68,6 +95,30 @@ def find_project_root(start: Path | None = None) -> Path | None:
     if (current / ".specflow").is_dir():
         return current
     return None
+
+
+@dataclass
+class RalphConfig:
+    """Ralph Loop configuration.
+
+    This is a lightweight config object for Ralph settings that doesn't
+    depend on the full orchestration module (to avoid circular imports).
+    Use get_ralph_loop_config() to convert to RalphLoopConfig.
+    """
+
+    enabled: bool = True
+    max_iterations: int = 10
+    default_verification: str = "string_match"
+    agent_defaults: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "enabled": self.enabled,
+            "max_iterations": self.max_iterations,
+            "default_verification": self.default_verification,
+            "agent_defaults": self.agent_defaults,
+        }
 
 
 @dataclass
@@ -92,6 +143,8 @@ class Config:
     docs_enabled: bool = False
     docs_generate_on_complete: bool = False
     docs_output_dir: str = "docs"
+    # Ralph Loop configuration
+    ralph: RalphConfig = field(default_factory=RalphConfig)
     _raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
     def get_agent_model(self, agent_type: str) -> str:
@@ -140,6 +193,15 @@ class Config:
         # Extract docs config
         docs_config = merged.get("docs", {})
 
+        # Extract Ralph config
+        ralph_config = merged.get("ralph", {})
+        ralph = RalphConfig(
+            enabled=ralph_config.get("enabled", True),
+            max_iterations=ralph_config.get("max_iterations", 10),
+            default_verification=ralph_config.get("default_verification", "string_match"),
+            agent_defaults=ralph_config.get("agent_defaults", {}),
+        )
+
         return cls(
             project_name=merged["project"]["name"],
             max_parallel_agents=merged["agents"]["max_parallel"],
@@ -159,6 +221,8 @@ class Config:
             docs_enabled=docs_config.get("enabled", False),
             docs_generate_on_complete=docs_config.get("generate_on_complete", False),
             docs_output_dir=docs_config.get("output_dir", "docs"),
+            # Ralph configuration
+            ralph=ralph,
             _raw=merged,
         )
 

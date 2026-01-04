@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from specflow.core.database import (
     CompletionCriteria,
+    Task,
     TaskCompletionSpec,
     VerificationMethod,
 )
@@ -26,6 +27,555 @@ if TYPE_CHECKING:
     from specflow.core.project import Project
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Ralph Loop Configuration and State
+# =============================================================================
+
+
+@dataclass
+class RalphLoopConfig:
+    """Configuration for Ralph-style loops.
+
+    Attributes:
+        enabled: Whether Ralph loops are enabled (global toggle)
+        max_iterations: Default maximum iterations before giving up
+        default_verification: Default verification method when none specified
+        agent_defaults: Per-agent default settings
+    """
+
+    enabled: bool = True
+    max_iterations: int = 10
+    default_verification: VerificationMethod = VerificationMethod.STRING_MATCH
+    agent_defaults: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    def get_max_iterations_for_agent(self, agent_type: str) -> int:
+        """Get max iterations for a specific agent type.
+
+        Args:
+            agent_type: The agent type (coder, reviewer, tester, qa)
+
+        Returns:
+            Max iterations (agent-specific or global default)
+        """
+        if agent_type in self.agent_defaults:
+            return self.agent_defaults[agent_type].get(
+                "max_iterations", self.max_iterations
+            )
+        return self.max_iterations
+
+    def get_default_promise_for_agent(self, agent_type: str) -> str:
+        """Get default promise for a specific agent type.
+
+        Args:
+            agent_type: The agent type
+
+        Returns:
+            Default promise text
+        """
+        default_promises = {
+            "coder": "IMPLEMENTATION_COMPLETE",
+            "reviewer": "REVIEW_PASSED",
+            "tester": "TESTS_PASSED",
+            "qa": "QA_PASSED",
+            "architect": "DESIGN_COMPLETE",
+        }
+        if agent_type in self.agent_defaults:
+            return self.agent_defaults[agent_type].get(
+                "promise", default_promises.get(agent_type, "STAGE_COMPLETE")
+            )
+        return default_promises.get(agent_type, "STAGE_COMPLETE")
+
+    def get_default_verification_for_agent(
+        self, agent_type: str
+    ) -> VerificationMethod:
+        """Get default verification method for a specific agent type.
+
+        Args:
+            agent_type: The agent type
+
+        Returns:
+            Default verification method
+        """
+        default_methods = {
+            "coder": VerificationMethod.EXTERNAL,
+            "reviewer": VerificationMethod.SEMANTIC,
+            "tester": VerificationMethod.EXTERNAL,
+            "qa": VerificationMethod.MULTI_STAGE,
+            "architect": VerificationMethod.STRING_MATCH,
+        }
+        if agent_type in self.agent_defaults:
+            method_str = self.agent_defaults[agent_type].get("verification")
+            if method_str:
+                try:
+                    return VerificationMethod(method_str)
+                except ValueError:
+                    pass
+        return default_methods.get(agent_type, self.default_verification)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "RalphLoopConfig":
+        """Create RalphLoopConfig from dictionary.
+
+        Args:
+            data: Configuration dictionary
+
+        Returns:
+            RalphLoopConfig instance
+        """
+        default_verification = VerificationMethod.STRING_MATCH
+        if "default_verification" in data:
+            try:
+                default_verification = VerificationMethod(data["default_verification"])
+            except ValueError:
+                pass
+
+        return cls(
+            enabled=data.get("enabled", True),
+            max_iterations=data.get("max_iterations", 10),
+            default_verification=default_verification,
+            agent_defaults=data.get("agent_defaults", {}),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization.
+
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "enabled": self.enabled,
+            "max_iterations": self.max_iterations,
+            "default_verification": self.default_verification.value,
+            "agent_defaults": self.agent_defaults,
+        }
+
+
+@dataclass
+class RalphLoopState:
+    """State for an active Ralph loop.
+
+    Tracks the current state of an iterative execution loop,
+    including iteration count, verification history, and timing.
+
+    Attributes:
+        task_id: ID of the task being executed
+        agent_type: Type of agent executing (coder, reviewer, etc.)
+        iteration: Current iteration number (starts at 0)
+        max_iterations: Maximum allowed iterations
+        completion_criteria: Criteria for completion verification
+        started_at: When the loop started
+        verification_results: History of verification attempts
+    """
+
+    task_id: str
+    agent_type: str
+    iteration: int
+    max_iterations: int
+    completion_criteria: CompletionCriteria
+    started_at: datetime
+    verification_results: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def is_at_limit(self) -> bool:
+        """Check if iteration limit has been reached."""
+        return self.iteration >= self.max_iterations
+
+    @property
+    def elapsed_seconds(self) -> float:
+        """Get elapsed time since loop started."""
+        return (datetime.now() - self.started_at).total_seconds()
+
+    @property
+    def last_verification(self) -> dict[str, Any] | None:
+        """Get the most recent verification result."""
+        if self.verification_results:
+            return self.verification_results[-1]
+        return None
+
+    def add_verification_result(
+        self,
+        promise_found: bool,
+        verified: bool,
+        reason: str,
+    ) -> None:
+        """Record a verification attempt.
+
+        Args:
+            promise_found: Whether a promise tag was found in output
+            verified: Whether the promise was verified as genuine
+            reason: Explanation of the verification result
+        """
+        self.verification_results.append({
+            "iteration": self.iteration,
+            "promise_found": promise_found,
+            "verified": verified,
+            "reason": reason,
+            "timestamp": datetime.now().isoformat(),
+        })
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization.
+
+        Returns:
+            Dictionary representation of loop state
+        """
+        return {
+            "task_id": self.task_id,
+            "agent_type": self.agent_type,
+            "iteration": self.iteration,
+            "max_iterations": self.max_iterations,
+            "completion_criteria": self.completion_criteria.to_dict(),
+            "started_at": self.started_at.isoformat(),
+            "verification_results": self.verification_results,
+            "elapsed_seconds": self.elapsed_seconds,
+        }
+
+
+# =============================================================================
+# Ralph Loop Manager
+# =============================================================================
+
+
+class RalphLoop:
+    """Manages Ralph-style iterative agent execution.
+
+    The RalphLoop class orchestrates the iterative refinement of agent work
+    until completion criteria are genuinely met. It handles:
+    - Starting loops with task-specific criteria
+    - Tracking iteration state
+    - Determining when to continue or exit
+    - Building prompts with completion requirements
+
+    Example:
+        >>> config = RalphLoopConfig(enabled=True, max_iterations=10)
+        >>> verifier = PromiseVerifier()
+        >>> ralph = RalphLoop(config, project=None, verifier=verifier)
+        >>> ralph.start(task, "coder", criteria)
+        >>> while True:
+        ...     ralph.increment()
+        ...     output = execute_agent()
+        ...     should_continue, reason = ralph.should_continue(output, worktree)
+        ...     if not should_continue:
+        ...         break
+    """
+
+    def __init__(
+        self,
+        config: RalphLoopConfig,
+        project: "Project | None" = None,
+        verifier: "PromiseVerifier | None" = None,
+    ):
+        """Initialize the Ralph loop manager.
+
+        Args:
+            config: Loop configuration
+            project: Optional project for context
+            verifier: Promise verifier instance (created if not provided)
+        """
+        self.config = config
+        self.project = project
+        self.verifier = verifier or PromiseVerifier(project)
+        self.state: RalphLoopState | None = None
+
+    @property
+    def is_active(self) -> bool:
+        """Check if a loop is currently active."""
+        return self.state is not None
+
+    @property
+    def current_iteration(self) -> int:
+        """Get current iteration number (0 if no active loop)."""
+        return self.state.iteration if self.state else 0
+
+    def start(
+        self,
+        task: Task,
+        agent_type: str,
+        criteria: CompletionCriteria | None = None,
+    ) -> RalphLoopState:
+        """Start a new Ralph loop for a task/agent.
+
+        Args:
+            task: The task being executed
+            agent_type: Type of agent (coder, reviewer, tester, qa)
+            criteria: Optional completion criteria (uses defaults if not provided)
+
+        Returns:
+            The initialized loop state
+
+        Raises:
+            ValueError: If Ralph loops are disabled
+        """
+        if not self.config.enabled:
+            raise ValueError("Ralph loops are disabled in configuration")
+
+        # Build criteria if not provided
+        if criteria is None:
+            # First try to get from task's completion spec
+            if task.completion_spec:
+                criteria = task.completion_spec.get_criteria_for_agent(agent_type)
+            # Fall back to defaults if still None
+            if criteria is None:
+                criteria = self._build_default_criteria(task, agent_type)
+
+        # Determine max iterations
+        max_iter = criteria.max_iterations
+        if max_iter is None:
+            max_iter = self.config.get_max_iterations_for_agent(agent_type)
+
+        self.state = RalphLoopState(
+            task_id=task.id,
+            agent_type=agent_type,
+            iteration=0,
+            max_iterations=max_iter,
+            completion_criteria=criteria,
+            started_at=datetime.now(),
+            verification_results=[],
+        )
+
+        logger.info(
+            f"Started Ralph loop for task {task.id}, agent {agent_type}, "
+            f"max_iterations={max_iter}"
+        )
+
+        return self.state
+
+    def increment(self) -> int:
+        """Increment iteration counter and return new value.
+
+        Returns:
+            New iteration number
+
+        Raises:
+            RuntimeError: If no active loop
+        """
+        if self.state is None:
+            raise RuntimeError("No active Ralph loop")
+
+        self.state.iteration += 1
+        logger.debug(
+            f"Ralph loop iteration {self.state.iteration}/{self.state.max_iterations} "
+            f"for task {self.state.task_id}"
+        )
+        return self.state.iteration
+
+    def should_continue(
+        self,
+        output: str,
+        worktree_path: Path | None = None,
+    ) -> tuple[bool, str]:
+        """Check if loop should continue based on agent output.
+
+        Analyzes the output to determine if the agent has completed
+        its work or if another iteration is needed.
+
+        Args:
+            output: The agent's output from this iteration
+            worktree_path: Path to worktree for external verification
+
+        Returns:
+            Tuple of (should_continue, reason)
+            - (False, "Completion verified") means success
+            - (False, "Max iterations...") means failure
+            - (True, reason) means continue looping
+
+        Raises:
+            RuntimeError: If no active loop
+        """
+        if self.state is None:
+            raise RuntimeError("No active Ralph loop")
+
+        # Extract promise from output
+        promise = self.verifier.extract_promise(output)
+
+        if not promise:
+            # No promise found - check iteration limit
+            if self.state.is_at_limit:
+                self.state.add_verification_result(
+                    promise_found=False,
+                    verified=False,
+                    reason="Max iterations reached without completion promise",
+                )
+                return False, "Max iterations reached without completion promise"
+
+            self.state.add_verification_result(
+                promise_found=False,
+                verified=False,
+                reason="No completion promise found in output",
+            )
+            return True, "No completion promise found"
+
+        # Promise found - verify it
+        result = self.verifier.verify(
+            criteria=self.state.completion_criteria,
+            output=output,
+            worktree_path=worktree_path,
+            context={
+                "task_id": self.state.task_id,
+                "agent_type": self.state.agent_type,
+                "iteration": self.state.iteration,
+            },
+        )
+
+        self.state.add_verification_result(
+            promise_found=True,
+            verified=result.passed,
+            reason=result.reason,
+        )
+
+        if result.passed:
+            logger.info(
+                f"Ralph loop completed successfully for task {self.state.task_id} "
+                f"after {self.state.iteration} iterations"
+            )
+            return False, "Completion verified"
+
+        # Verification failed - check if we can continue
+        if self.state.is_at_limit:
+            return False, f"Max iterations reached. Last verification: {result.reason}"
+
+        return True, f"Verification failed: {result.reason}"
+
+    def finish(self) -> dict[str, Any]:
+        """End the current loop and return final state.
+
+        Returns:
+            Dictionary with final loop state and summary
+
+        Raises:
+            RuntimeError: If no active loop
+        """
+        if self.state is None:
+            raise RuntimeError("No active Ralph loop")
+
+        # Determine success
+        success = False
+        if self.state.last_verification:
+            success = self.state.last_verification.get("verified", False)
+
+        result = {
+            "task_id": self.state.task_id,
+            "agent_type": self.state.agent_type,
+            "success": success,
+            "iterations": self.state.iteration,
+            "max_iterations": self.state.max_iterations,
+            "elapsed_seconds": self.state.elapsed_seconds,
+            "verification_history": self.state.verification_results,
+        }
+
+        logger.info(
+            f"Ralph loop finished: task={self.state.task_id}, "
+            f"success={success}, iterations={self.state.iteration}"
+        )
+
+        self.state = None
+        return result
+
+    def reset(self) -> None:
+        """Cancel/reset the current loop without finishing."""
+        if self.state:
+            logger.debug(f"Ralph loop reset for task {self.state.task_id}")
+        self.state = None
+
+    def build_prompt_section(self, task: Task) -> str:
+        """Build the Ralph loop section for agent prompts.
+
+        Generates markdown text to append to agent prompts that explains
+        the completion requirements and current loop status.
+
+        Args:
+            task: The task being executed
+
+        Returns:
+            Markdown text to append to agent prompt
+
+        Raises:
+            RuntimeError: If no active loop
+        """
+        if self.state is None:
+            raise RuntimeError("No active Ralph loop")
+
+        criteria = self.state.completion_criteria
+        spec = task.completion_spec
+
+        acceptance_criteria_md = ""
+        if spec and spec.acceptance_criteria:
+            items = "\n".join(f"- [ ] {c}" for c in spec.acceptance_criteria)
+            acceptance_criteria_md = f"## Acceptance Criteria\n{items}\n"
+
+        previous_attempts = ""
+        if self.state.verification_results:
+            attempts = []
+            for r in self.state.verification_results[-3:]:  # Last 3 attempts
+                status = "✓" if r.get("verified") else "✗"
+                attempts.append(f"- Iteration {r['iteration']}: {status} {r['reason']}")
+            if attempts:
+                previous_attempts = (
+                    f"\n## Previous Verification Attempts\n"
+                    + "\n".join(attempts)
+                    + "\n"
+                )
+
+        return f"""
+## Ralph Loop Status
+- **Iteration**: {self.state.iteration}/{self.state.max_iterations}
+- **Agent**: {self.state.agent_type}
+- **Elapsed**: {self.state.elapsed_seconds:.1f}s
+
+## Task Outcome (What "Done" Means)
+{spec.outcome if spec else "Complete the assigned task."}
+
+{acceptance_criteria_md}
+## Your Completion Requirements
+
+When you have GENUINELY completed this stage:
+
+**Success Criteria for {self.state.agent_type}:**
+{criteria.description}
+
+**To signal completion, output:**
+```
+<promise>{criteria.promise}</promise>
+```
+
+**CRITICAL:**
+- Only output the promise when ALL acceptance criteria are truly met
+- Your completion will be verified using: {criteria.verification_method.value}
+- False promises will be detected and the loop will continue
+- If blocked, explain what's preventing completion
+
+The loop will continue until genuine completion or iteration {self.state.max_iterations}.
+{previous_attempts}"""
+
+    def _build_default_criteria(
+        self, task: Task, agent_type: str
+    ) -> CompletionCriteria:
+        """Build default completion criteria when none specified.
+
+        Args:
+            task: The task
+            agent_type: Agent type
+
+        Returns:
+            Default CompletionCriteria
+        """
+        promise = self.config.get_default_promise_for_agent(agent_type)
+        method = self.config.get_default_verification_for_agent(agent_type)
+
+        # Build verification config from task acceptance criteria
+        verification_config: dict[str, Any] = {}
+        if task.completion_spec and task.completion_spec.acceptance_criteria:
+            if method == VerificationMethod.SEMANTIC:
+                verification_config["check_for"] = task.completion_spec.acceptance_criteria
+
+        return CompletionCriteria(
+            promise=promise,
+            description=f"Complete {agent_type} stage for: {task.title}",
+            verification_method=method,
+            verification_config=verification_config,
+        )
 
 
 @dataclass
