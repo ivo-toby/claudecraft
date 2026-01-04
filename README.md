@@ -397,27 +397,31 @@ If a stage fails after max retries, the task resets to `todo` status with failur
 cd my-todo-app
 specflow init
 
-# 2. Create a BRD (in Claude Code)
+# 2. Configure your constitution (defines rules for all agents)
+/specflow.constitution
+# Set your tech stack, code standards, testing requirements
+
+# 3. Create a BRD (in Claude Code)
 /specflow.brd
 # Answer questions about your business requirements
 
-# 3. Create a PRD from the BRD
+# 4. Create a PRD from the BRD
 /specflow.prd
 # Refine into product requirements
 
-# 4. Generate technical specification
+# 5. Generate technical specification
 /specflow.specify todo-app-20251228
 # AI generates spec.md with your approval
 
-# 5. Create implementation tasks
+# 6. Create implementation tasks
 /specflow.tasks todo-app-20251228
 # Creates tasks with dependencies
 
-# 6. Launch TUI to monitor
+# 7. Launch TUI to monitor
 specflow tui
 # Press 't' for swimlane view
 
-# 7. Execute autonomous implementation
+# 8. Execute autonomous implementation
 /specflow.implement todo-app-20251228
 # Watch agents work in real-time!
 ```
@@ -660,13 +664,9 @@ If you already have a requirements or specification document, you can quickly ge
 cd my-project
 specflow init
 
-# 2. IMPORTANT: Customize your constitution first!
-#    This defines ground rules for ALL AI agents
-vim .specflow/constitution.md
-# - Set your tech stack (languages, frameworks, databases)
-# - Define code quality standards
-# - Specify testing requirements
-# - Set architecture patterns
+# 2. Configure your constitution (defines rules for all agents)
+/specflow.constitution
+# Set your tech stack, code standards, testing requirements, architecture
 
 # 3. Ingest your existing document
 /specflow.ingest my-requirements.md
@@ -693,7 +693,7 @@ vim .specflow/constitution.md
 
 ```bash
 specflow init
-# Edit .specflow/constitution.md with your project rules
+/specflow.constitution
 /specflow.ingest path/to/requirements.md
 /specflow.specify {spec-id}   # Review & approve
 /specflow.plan {spec-id}
