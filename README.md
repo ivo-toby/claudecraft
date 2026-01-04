@@ -236,12 +236,18 @@ specflow spec-get <id> [--json]
 
 ```bash
 specflow list-tasks [--spec ID] [--status STATUS] [--json]
-specflow task-create <id> <spec-id> <title> [--priority 1|2|3] [--dependencies IDS]
+specflow task-create <id> <spec-id> <title> [--priority 1|2|3] [--dependencies IDS] \
+    [--outcome TEXT] [--acceptance-criteria TEXT...] [--completion-file PATH] \
+    [--coder-promise TEXT] [--coder-verification METHOD] [--coder-command CMD] \
+    [--tester-command CMD] [--reviewer-verification METHOD]
 specflow task-update <id> <status>
-specflow task-followup <id> <spec-id> <title> [--parent TASK-ID] [--priority 2|3]
+specflow task-followup <id> <spec-id> <title> [--parent TASK-ID] [--priority 2|3] \
+    [--outcome TEXT] [--acceptance-criteria TEXT...]
 ```
 
 **Task statuses:** `todo`, `implementing`, `testing`, `reviewing`, `done`
+
+**Verification methods:** `string_match`, `semantic`, `external`, `multi_stage`
 
 **Follow-up task prefixes:** `PLACEHOLDER-`, `TECH-DEBT-`, `REFACTOR-`, `TEST-GAP-`, `EDGE-CASE-`, `DOC-`
 
@@ -252,6 +258,15 @@ specflow agent-start <task-id> --type coder|tester|reviewer|qa
 specflow agent-stop --task <task-id>
 specflow list-agents [--json]
 ```
+
+### Ralph Loop (Self-Assessment)
+
+```bash
+specflow ralph-status [--task-id ID] [--status STATUS] [--json]
+specflow ralph-cancel <task-id> [--agent-type TYPE] [--json]
+```
+
+**Ralph status filters:** `running`, `completed`, `cancelled`, `failed`
 
 ### Worktree & Merge
 
@@ -584,6 +599,43 @@ task = Task(
 2. Verification method runs to validate the promise is genuine
 3. If verification fails, the agent continues iterating
 4. Loop exits when verified or max iterations reached
+
+**CLI Usage:**
+
+```bash
+# Create task with completion criteria via CLI
+specflow task-create TASK-001 auth-feature "Implement JWT auth" \
+    --priority 1 \
+    --outcome "JWT authentication fully working" \
+    --acceptance-criteria "Login returns valid JWT" \
+    --acceptance-criteria "Invalid tokens return 401" \
+    --coder-promise "AUTH_COMPLETE" \
+    --coder-verification external \
+    --coder-command "pytest tests/test_auth.py" \
+    --tester-command "pytest --cov=src/auth --cov-fail-under=80"
+
+# Or load completion spec from YAML file
+specflow task-create TASK-002 auth-feature "Add refresh tokens" \
+    --completion-file specs/auth-feature/completion.yaml
+
+# Monitor Ralph loop status
+specflow ralph-status
+specflow ralph-status --task-id TASK-001
+specflow ralph-status --status running
+
+# Cancel a stuck Ralph loop
+specflow ralph-cancel TASK-001
+specflow ralph-cancel TASK-001 --agent-type coder
+```
+
+**Best Practices:**
+
+1. **Start simple** — Use `STRING_MATCH` for initial development, upgrade to `EXTERNAL` when you have tests
+2. **Be specific with promises** — Use descriptive promises like `AUTH_MIDDLEWARE_COMPLETE` not just `DONE`
+3. **Set realistic iterations** — Coder: 10-15, Reviewer: 3-5, Tester: 5-10, QA: 3-5
+4. **Use external verification** — Shell commands are more reliable than string matching for critical tasks
+5. **Combine methods for QA** — Use `MULTI_STAGE` to run tests, linting, and type checking together
+6. **Monitor in TUI** — The swimlane board shows `⟳N/M` badges for active Ralph loops
 
 For detailed specification, see [docs/RALPH_SPEC.md](docs/RALPH_SPEC.md).
 
