@@ -639,6 +639,63 @@ specflow ralph-cancel TASK-001 --agent-type coder
 
 For detailed specification, see [docs/RALPH_SPEC.md](docs/RALPH_SPEC.md).
 
+### Example 8: Ingesting an Existing Spec File
+
+If you already have a requirements or specification document, you can quickly get SpecFlow working on it:
+
+```bash
+# 1. Initialize SpecFlow in your project
+cd my-project
+specflow init
+
+# 2. IMPORTANT: Customize your constitution first!
+#    This defines ground rules for ALL AI agents
+vim .specflow/constitution.md
+# - Set your tech stack (languages, frameworks, databases)
+# - Define code quality standards
+# - Specify testing requirements
+# - Set architecture patterns
+
+# 3. Ingest your existing document
+/specflow.ingest my-requirements.md
+# This creates specs/{spec-id}/ with your document as BRD or PRD
+
+# 4. Generate technical specification (human approval gate)
+/specflow.specify {spec-id}
+# Review the generated spec.md - approve or request changes
+
+# 5. Create implementation plan
+/specflow.plan {spec-id}
+# Generates plan.md with architecture decisions
+
+# 6. Decompose into executable tasks
+/specflow.tasks {spec-id}
+# Creates tasks directly in database with dependencies
+
+# 7. Start autonomous implementation
+/specflow.implement {spec-id}
+# Agents work in parallel - monitor in TUI with 'specflow tui'
+```
+
+**Quick Start (minimal commands):**
+
+```bash
+specflow init
+# Edit .specflow/constitution.md with your project rules
+/specflow.ingest path/to/requirements.md
+/specflow.specify {spec-id}   # Review & approve
+/specflow.plan {spec-id}
+/specflow.tasks {spec-id}
+/specflow.implement {spec-id}
+```
+
+**Tips:**
+
+- The constitution is critical — spend time defining your standards upfront
+- Press `t` in the TUI to see the task swimlane board
+- Use `specflow status` to check project state at any time
+- Tasks flow through: Todo → Implementing → Testing → Reviewing → Done
+
 ## Architecture
 
 ### Workflow
