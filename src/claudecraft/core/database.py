@@ -964,10 +964,11 @@ class Database:
                 if cursor.rowcount == 0:
                     raise ValueError("No available agent slots (max 6)")
 
-                # Return the slot that was assigned
+                # Return the slot that was assigned using lastrowid
+                # (avoids ambiguity if task_id is not unique)
                 cursor.execute(
-                    "SELECT slot FROM active_agents WHERE task_id = ?",
-                    (task_id,),
+                    "SELECT slot FROM active_agents WHERE rowid = ?",
+                    (cursor.lastrowid,),
                 )
                 assigned_slot: int = cursor.fetchone()[0]
                 return assigned_slot

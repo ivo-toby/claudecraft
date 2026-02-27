@@ -885,7 +885,14 @@ def cmd_execute(
                 # Run bootstrap commands if configured
                 bootstrap_cmds = project.config.bootstrap_commands
                 if bootstrap_cmds:
-                    worktree_mgr.run_bootstrap(task.id, bootstrap_cmds)
+                    bootstrap_results = worktree_mgr.run_bootstrap(task.id, bootstrap_cmds)
+                    failed = [r for r in bootstrap_results if r["returncode"] != 0]
+                    if failed:
+                        for r in failed:
+                            with print_lock:
+                                print(f"[WARN] Task {task.id}: bootstrap command failed: {r['command']} (exit {r['returncode']})")
+                                if r["stderr"]:
+                                    print(f"  stderr: {str(r['stderr'])[:200]}")
 
                 # Execute through pipeline
                 success = pipeline.execute_task(task, worktree_path)
@@ -2528,7 +2535,7 @@ def cmd_worktree_bootstrap(
                 status = "ok" if br["returncode"] == 0 else "FAILED"
                 print(f"[{status}] {br['command']}")
                 if br["returncode"] != 0 and br["stderr"]:
-                    print(f"  stderr: {br['stderr'][:200]}")
+                    print(f"  stderr: {str(br['stderr'])[:200]}")
 
         failed = any(r["returncode"] != 0 for r in results)
         return 1 if failed else 0

@@ -5,7 +5,7 @@
 - [x] changes in the textareas should be saved, and warn a user that changes are unsaved when the textarea loses focus
   - Implemented unsaved changes tracking with asterisk (\*) indicator in subtitle
   - Fixed tab mapping to properly track Q/A tab changes
-- [x] the constitution is not part of the workflow, nor the TUI. It should editable from the TUI
+- [x] the constitution is not part of the workflow, nor the TUI. It should be editable from the TUI
   - Removed from spec-specific tabs (it's project-level, not spec-level)
   - Added to project configuration screen (accessible via 'c' key)
 - [x] I want the agents to be editable from the TUI
@@ -19,7 +19,7 @@
 
 ---
 
-# Question or optimalisations
+# Questions or optimizations
 
 - How are subagents defined? And what models are used in sub-agents? I'd like to be able to configure them with a slash command
 
