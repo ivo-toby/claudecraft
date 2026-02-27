@@ -12,7 +12,7 @@ $ARGUMENTS - Spec ID to create tasks for
 ## Prerequisites
 
 - plan.md must exist
-- Spec status: planned
+- Spec status: planned (set by /claudecraft.plan)
 
 ## Database-First Approach
 

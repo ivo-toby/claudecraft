@@ -138,8 +138,8 @@ class AgentsPanel(VerticalScroll):
         """Start polling when mounted."""
         # Initial refresh
         self._refresh_agents()
-        # Poll every 2 seconds
-        self._poll_timer = self.set_interval(2.0, self._refresh_agents)
+        # Poll every 0.5 seconds for responsive agent slot updates
+        self._poll_timer = self.set_interval(0.5, self._refresh_agents)
 
     def on_unmount(self) -> None:
         """Stop polling when unmounted."""

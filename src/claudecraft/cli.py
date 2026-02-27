@@ -19,6 +19,10 @@ from claudecraft.core.database import (
 )
 from claudecraft.core.project import Project
 
+# Derive CLI choices from enums so they stay in sync
+_SPEC_STATUS_CHOICES = [s.value for s in SpecStatus]
+_TASK_STATUS_CHOICES = [s.value for s in TaskStatus]
+
 
 def main() -> int:
     """Main entry point for ClaudeCraft CLI."""
@@ -59,7 +63,7 @@ def main() -> int:
     list_specs_parser = subparsers.add_parser("list-specs", help="List all specifications")
     list_specs_parser.add_argument(
         "--status",
-        choices=["draft", "approved", "in_progress", "completed"],
+        choices=_SPEC_STATUS_CHOICES,
         help="Filter by status",
     )
 
@@ -71,7 +75,7 @@ def main() -> int:
     )
     list_tasks_parser.add_argument(
         "--status",
-        choices=["todo", "implementing", "testing", "reviewing", "done"],
+        choices=_TASK_STATUS_CHOICES,
         help="Filter by status",
     )
 
@@ -82,7 +86,7 @@ def main() -> int:
     task_update_parser.add_argument("task_id", help="Task ID to update")
     task_update_parser.add_argument(
         "status",
-        choices=["todo", "implementing", "testing", "reviewing", "done"],
+        choices=_TASK_STATUS_CHOICES,
         help="New status",
     )
 
@@ -186,7 +190,7 @@ def main() -> int:
     )
     spec_create_parser.add_argument(
         "--status",
-        choices=["draft", "approved", "in_progress", "completed"],
+        choices=_SPEC_STATUS_CHOICES,
         default="draft",
         help="Initial status (default: draft)",
     )
@@ -198,7 +202,7 @@ def main() -> int:
     spec_update_parser.add_argument("spec_id", help="Spec ID to update")
     spec_update_parser.add_argument(
         "--status",
-        choices=["draft", "approved", "in_progress", "completed"],
+        choices=_SPEC_STATUS_CHOICES,
         help="New status",
     )
     spec_update_parser.add_argument("--title", help="New title")
@@ -381,6 +385,14 @@ def main() -> int:
     worktree_create_parser.add_argument(
         "--base", default="main", help="Base branch to branch from (default: main)"
     )
+    worktree_create_parser.add_argument(
+        "--spec", help="Spec ID (accepted for agent compatibility, not required)"
+    )
+    worktree_create_parser.add_argument(
+        "--no-bootstrap",
+        action="store_true",
+        help="Skip running bootstrap commands after creating worktree",
+    )
 
     # worktree-remove command
     worktree_remove_parser = subparsers.add_parser(
@@ -393,6 +405,17 @@ def main() -> int:
 
     # worktree-list command
     subparsers.add_parser("worktree-list", help="List all worktrees")
+
+    # worktree-bootstrap command
+    worktree_bootstrap_parser = subparsers.add_parser(
+        "worktree-bootstrap", help="Run bootstrap commands in an existing worktree"
+    )
+    worktree_bootstrap_parser.add_argument("task_id", help="Task ID of the worktree")
+    worktree_bootstrap_parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="Stop on first command failure",
+    )
 
     # worktree-commit command
     worktree_commit_parser = subparsers.add_parser(
@@ -536,11 +559,16 @@ def main() -> int:
     elif args.command == "sync-status":
         return cmd_sync_status(args.json)
     elif args.command == "worktree-create":
-        return cmd_worktree_create(args.task_id, args.base, args.json)
+        return cmd_worktree_create(
+            args.task_id, args.base, args.json,
+            spec=args.spec, no_bootstrap=args.no_bootstrap,
+        )
     elif args.command == "worktree-remove":
         return cmd_worktree_remove(args.task_id, args.force, args.json)
     elif args.command == "worktree-list":
         return cmd_worktree_list(args.json)
+    elif args.command == "worktree-bootstrap":
+        return cmd_worktree_bootstrap(args.task_id, args.fail_fast, args.json)
     elif args.command == "worktree-commit":
         return cmd_worktree_commit(args.task_id, args.message, args.json)
     elif args.command == "merge-task":
@@ -853,6 +881,11 @@ def cmd_execute(
 
                 # Create worktree
                 worktree_path = worktree_mgr.create_worktree(task.id)
+
+                # Run bootstrap commands if configured
+                bootstrap_cmds = project.config.bootstrap_commands
+                if bootstrap_cmds:
+                    worktree_mgr.run_bootstrap(task.id, bootstrap_cmds)
 
                 # Execute through pipeline
                 success = pipeline.execute_task(task, worktree_path)
@@ -2397,7 +2430,11 @@ def cmd_sync_status(json_output: bool = False) -> int:
 
 
 def cmd_worktree_create(
-    task_id: str, base_branch: str = "main", json_output: bool = False
+    task_id: str,
+    base_branch: str = "main",
+    json_output: bool = False,
+    spec: str | None = None,
+    no_bootstrap: bool = False,
 ) -> int:
     """Create a git worktree for a task."""
     try:
@@ -2407,18 +2444,94 @@ def cmd_worktree_create(
         worktree_mgr = WorktreeManager(project.root)
         worktree_path = worktree_mgr.create_worktree(task_id, base_branch)
 
+        # Run bootstrap commands unless --no-bootstrap
+        bootstrap_results = []
+        if not no_bootstrap:
+            bootstrap_cmds = project.config.bootstrap_commands
+            if bootstrap_cmds:
+                bootstrap_results = worktree_mgr.run_bootstrap(
+                    task_id, bootstrap_cmds
+                )
+
         if json_output:
-            result = {
+            result: dict[str, Any] = {
                 "success": True,
                 "task_id": task_id,
                 "worktree_path": str(worktree_path),
                 "branch": f"task/{task_id}",
             }
+            if spec:
+                result["spec"] = spec
+            if bootstrap_results:
+                result["bootstrap"] = bootstrap_results
             print(json.dumps(result, indent=2))
         else:
             print(f"Created worktree: {worktree_path}")
             print(f"  Branch: task/{task_id}")
+            if bootstrap_results:
+                for br in bootstrap_results:
+                    status = "ok" if br["returncode"] == 0 else "FAILED"
+                    print(f"  Bootstrap [{status}]: {br['command']}")
         return 0
+    except FileNotFoundError:
+        if json_output:
+            result = {"success": False, "error": "Not a ClaudeCraft project"}
+            print(json.dumps(result, indent=2))
+        else:
+            print("Not a ClaudeCraft project (no .claudecraft directory found)", file=sys.stderr)
+        return 1
+    except Exception as e:
+        if json_output:
+            result = {"success": False, "error": str(e)}
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_worktree_bootstrap(
+    task_id: str, fail_fast: bool = False, json_output: bool = False
+) -> int:
+    """Run bootstrap commands in an existing worktree."""
+    try:
+        from claudecraft.orchestration.worktree import WorktreeManager
+
+        project = Project.load()
+        worktree_mgr = WorktreeManager(project.root)
+        bootstrap_cmds = project.config.bootstrap_commands
+
+        if not bootstrap_cmds:
+            if json_output:
+                result = {
+                    "success": True,
+                    "message": "No bootstrap commands configured",
+                    "results": [],
+                }
+                print(json.dumps(result, indent=2))
+            else:
+                print("No bootstrap commands configured in config.yaml")
+            return 0
+
+        results = worktree_mgr.run_bootstrap(
+            task_id, bootstrap_cmds, fail_fast=fail_fast
+        )
+
+        if json_output:
+            result = {
+                "success": all(r["returncode"] == 0 for r in results),
+                "task_id": task_id,
+                "results": results,
+            }
+            print(json.dumps(result, indent=2))
+        else:
+            for br in results:
+                status = "ok" if br["returncode"] == 0 else "FAILED"
+                print(f"[{status}] {br['command']}")
+                if br["returncode"] != 0 and br["stderr"]:
+                    print(f"  stderr: {br['stderr'][:200]}")
+
+        failed = any(r["returncode"] != 0 for r in results)
+        return 1 if failed else 0
     except FileNotFoundError:
         if json_output:
             result = {"success": False, "error": "Not a ClaudeCraft project"}

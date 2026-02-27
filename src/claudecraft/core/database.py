@@ -520,6 +520,10 @@ class Database:
             self._conn = sqlite3.connect(str(self.path))
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA foreign_keys = ON")
+            # WAL mode allows concurrent readers + single writer without blocking
+            self._conn.execute("PRAGMA journal_mode = WAL")
+            # Wait up to 5 seconds if another process holds a write lock
+            self._conn.execute("PRAGMA busy_timeout = 5000")
         return self._conn
 
     def init_schema(self) -> None:
@@ -936,32 +940,47 @@ class Database:
             The assigned slot number
         """
         with self.transaction() as cursor:
+            now = datetime.now().isoformat()
+
             if slot is None:
-                # Find first available slot (1-6)
-                cursor.execute("SELECT slot FROM active_agents ORDER BY slot")
-                used_slots = {row[0] for row in cursor.fetchall()}
-                for s in range(1, 7):
-                    if s not in used_slots:
-                        slot = s
-                        break
-                if slot is None:
+                # Atomic slot assignment: find first available slot and insert
+                # in a single statement to prevent race conditions.
+                # The inner SELECT finds available slots; we pick the minimum.
+                # If no slots are available, the WHERE clause ensures no row
+                # is inserted (the subquery returns empty, not a NULL row).
+                cursor.execute(
+                    """
+                    INSERT INTO active_agents
+                        (task_id, agent_type, slot, pid, worktree, started_at)
+                    SELECT ?, ?, s.slot, ?, ?, ?
+                    FROM (SELECT 1 AS slot UNION SELECT 2 UNION SELECT 3
+                          UNION SELECT 4 UNION SELECT 5 UNION SELECT 6) s
+                    WHERE s.slot NOT IN (SELECT slot FROM active_agents)
+                    ORDER BY s.slot
+                    LIMIT 1
+                    """,
+                    (task_id, agent_type, pid, worktree, now),
+                )
+                if cursor.rowcount == 0:
                     raise ValueError("No available agent slots (max 6)")
 
-            cursor.execute(
-                """
-                INSERT OR REPLACE INTO active_agents
-                    (task_id, agent_type, slot, pid, worktree, started_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    task_id,
-                    agent_type,
-                    slot,
-                    pid,
-                    worktree,
-                    datetime.now().isoformat(),
-                ),
-            )
+                # Return the slot that was assigned
+                cursor.execute(
+                    "SELECT slot FROM active_agents WHERE task_id = ?",
+                    (task_id,),
+                )
+                assigned_slot: int = cursor.fetchone()[0]
+                return assigned_slot
+            else:
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO active_agents
+                        (task_id, agent_type, slot, pid, worktree, started_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (task_id, agent_type, slot, pid, worktree, now),
+                )
+
             return slot
 
     def deregister_agent(self, task_id: str | None = None, slot: int | None = None) -> bool:
@@ -999,11 +1018,15 @@ class Database:
         row = cursor.fetchone()
         return self._row_to_agent(row) if row else None
 
-    def cleanup_stale_agents(self) -> int:
-        """Remove agents whose processes are no longer running.
+    def cleanup_stale_agents(self, max_age_minutes: int = 60) -> int:
+        """Remove agents whose processes are no longer running or are too old.
 
-        Only checks agents that have a PID registered. Agents registered
-        via CLI (without PID) must be manually deregistered via agent-stop.
+        Checks two conditions:
+        1. Agents with a PID whose process is no longer running
+        2. Agents without a PID (CLI-registered) older than max_age_minutes
+
+        Args:
+            max_age_minutes: Maximum age in minutes for pid-less agents (default: 60)
 
         Returns:
             Number of stale agents cleaned up
@@ -1012,14 +1035,20 @@ class Database:
 
         agents = self.list_active_agents()
         cleaned = 0
+        now = datetime.now()
         for agent in agents:
-            # Only check agents with a PID - CLI-registered agents have no PID
             if agent.pid is not None:
                 try:
                     # Check if process exists (sends signal 0)
                     os.kill(agent.pid, 0)
                 except OSError:
                     # Process doesn't exist, clean up
+                    self.deregister_agent(slot=agent.slot)
+                    cleaned += 1
+            else:
+                # CLI-registered agents (no PID): clean up if older than threshold
+                age_minutes = (now - agent.started_at).total_seconds() / 60
+                if age_minutes > max_age_minutes:
                     self.deregister_agent(slot=agent.slot)
                     cleaned += 1
         return cleaned
