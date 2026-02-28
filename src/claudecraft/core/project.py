@@ -2,6 +2,7 @@
 
 import re
 import shutil
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -143,6 +144,16 @@ class Project:
         """Load an existing ClaudeCraft project."""
         config = Config.load(path)
         db = FileStore(config.project_root)
+
+        # Warn if a SQLite database is still present (migration needed)
+        db_path = config.project_root / ".claudecraft" / "claudecraft.db"
+        if db_path.exists():
+            print(
+                f"Warning: SQLite database found at {db_path}. "
+                "Run 'claudecraft migrate' to migrate to flat-file storage.",
+                file=sys.stderr,
+            )
+
         return cls(config.project_root, config, db)
 
     def close(self) -> None:

@@ -82,7 +82,14 @@ secrets.yml
 # ClaudeCraft specific
 .worktrees/
 .claudecraft/database.db
-.claudecraft/memory/
+
+# ClaudeCraft runtime state (not git-committed)
+.claudecraft/state/
+.claudecraft/agents/
+.claudecraft/logs/
+.claudecraft/ralph/
+# Note: .claudecraft/config.yaml and .claudecraft/memory/ are intentionally NOT ignored
+# Note: specs/ is intentionally NOT ignored (definition state should be committed)
 
 # Temporary files
 *.tmp

@@ -11,6 +11,7 @@ from typing import Any
 from claudecraft.core.config import Config
 from claudecraft.core.models import (
     CompletionCriteria,
+    ExecutionLog,
     Spec,
     SpecStatus,
     Task,
@@ -448,6 +449,9 @@ def main() -> int:
         "--cleanup", action="store_true", help="Remove worktree and branch after merge"
     )
 
+    # migrate command
+    subparsers.add_parser("migrate", help="Migrate from SQLite to flat-file storage")
+
     # generate-docs command
     generate_docs_parser = subparsers.add_parser(
         "generate-docs", help="Generate developer documentation for the codebase"
@@ -589,6 +593,8 @@ def main() -> int:
         return cmd_merge_task(args.task_id, args.target, args.cleanup, args.json)
     elif args.command == "generate-docs":
         return cmd_generate_docs(args.spec, args.output, args.model, args.json)
+    elif args.command == "migrate":
+        return cmd_migrate(args.json)
     else:
         # Default to TUI if no command specified
         return cmd_tui(Path.cwd())
@@ -2841,6 +2847,115 @@ If there are issues, output: DOCUMENTATION FAILED: [reason]
         else:
             print(f"Error: {e}", file=sys.stderr)
         return 1
+
+
+def cmd_migrate(json_output: bool = False) -> int:
+    """Migrate from SQLite database to flat-file storage."""
+    import sqlite3
+
+    try:
+        project = Project.load()
+    except FileNotFoundError:
+        if json_output:
+            print(json.dumps({"success": False, "error": "Not a ClaudeCraft project"}))
+        else:
+            print("Not a ClaudeCraft project", file=sys.stderr)
+        return 1
+
+    db_path = project.root / ".claudecraft" / "claudecraft.db"
+    if not db_path.exists():
+        msg = "No SQLite database found at .claudecraft/claudecraft.db"
+        if json_output:
+            print(json.dumps({"success": False, "error": msg}))
+        else:
+            print(f"Note: {msg}", file=sys.stderr)
+        return 0  # Not an error - project may already be migrated
+
+    # Connect to SQLite
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+
+    try:
+        stats: dict[str, int] = {"specs": 0, "tasks": 0, "logs": 0}
+
+        # Migrate specs
+        cursor = conn.execute("SELECT * FROM specs")
+        for row in cursor:
+            spec = Spec(
+                id=row["id"],
+                title=row["title"],
+                status=SpecStatus(row["status"]),
+                source_type=row["source_type"],
+                created_at=datetime.fromisoformat(row["created_at"]),
+                updated_at=datetime.fromisoformat(row["updated_at"]),
+                metadata=json.loads(row["metadata"] or "{}"),
+            )
+            if not project.db.get_spec(spec.id):
+                project.db.create_spec(spec)
+                stats["specs"] += 1
+
+        # Migrate tasks
+        valid_statuses = {s.value for s in TaskStatus}
+        cursor = conn.execute("SELECT * FROM tasks")
+        for row in cursor:
+            completion_spec = None
+            if row["completion_spec"]:
+                completion_spec = TaskCompletionSpec.from_dict(
+                    json.loads(row["completion_spec"])
+                )
+            status_val = row["status"] if row["status"] in valid_statuses else "todo"
+            task = Task(
+                id=row["id"],
+                spec_id=row["spec_id"],
+                title=row["title"],
+                description=row["description"],
+                status=TaskStatus(status_val),
+                priority=row["priority"],
+                dependencies=json.loads(row["dependencies"] or "[]"),
+                assignee=row["assignee"],
+                worktree=row["worktree"],
+                iteration=row["iteration"] or 0,
+                created_at=datetime.fromisoformat(row["created_at"]),
+                updated_at=datetime.fromisoformat(row["updated_at"]),
+                metadata=json.loads(row["metadata"] or "{}"),
+                completion_spec=completion_spec,
+            )
+            if not project.db.get_task(task.id, task.spec_id):
+                project.db.create_task(task)
+                stats["tasks"] += 1
+
+        # Migrate execution logs
+        cursor = conn.execute("SELECT * FROM execution_logs ORDER BY id")
+        for row in cursor:
+            log = ExecutionLog(
+                id=row["id"],
+                task_id=row["task_id"],
+                agent_type=row["agent_type"],
+                action=row["action"],
+                output=row["output"],
+                success=bool(row["success"]),
+                duration_ms=row["duration_ms"],
+                created_at=datetime.fromisoformat(row["created_at"]),
+            )
+            project.db.append_execution_log(log)
+            stats["logs"] += 1
+
+    finally:
+        conn.close()
+
+    # Rename SQLite database as backup
+    backup_path = db_path.with_suffix(".db.migrated")
+    db_path.rename(backup_path)
+
+    if json_output:
+        print(json.dumps({"success": True, **stats, "backup": str(backup_path)}))
+    else:
+        print(
+            f"Migration complete: {stats['specs']} specs, "
+            f"{stats['tasks']} tasks, {stats['logs']} logs"
+        )
+        print(f"SQLite database backed up to: {backup_path}")
+    return 0
 
 
 if __name__ == "__main__":
