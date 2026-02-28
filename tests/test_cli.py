@@ -455,7 +455,16 @@ class TestCmdSpecUpdate:
         assert spec.title == "Updated Title"
 
     def test_update_spec_metadata(self, cli_project_with_data):
-        """Test updating spec metadata."""
+        """Test updating spec metadata and preserving existing keys."""
+        # First, set initial metadata
+        result = cmd_spec_update(
+            "test-spec-1",
+            metadata_json='{"quick_task": true}',
+            json_output=False,
+        )
+        assert result == 0
+
+        # Then, merge additional metadata keys
         result = cmd_spec_update(
             "test-spec-1",
             metadata_json='{"review": true, "test": false}',
@@ -464,6 +473,9 @@ class TestCmdSpecUpdate:
         assert result == 0
 
         spec = cli_project_with_data.db.get_spec("test-spec-1")
+        # Existing key preserved
+        assert spec.metadata["quick_task"] is True
+        # New keys added
         assert spec.metadata["review"] is True
         assert spec.metadata["test"] is False
 

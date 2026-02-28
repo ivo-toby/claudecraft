@@ -1456,11 +1456,12 @@ def cmd_quick_create(
     """Create a lightweight quick-task spec."""
     try:
         project = Project.load()
+        now = datetime.now()
 
         # Generate spec ID from description + timestamp if not provided
         if not spec_id:
             slug = re.sub(r"[^a-z0-9]+", "-", description.lower()).strip("-")[:40]
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+            timestamp = now.strftime("%Y%m%d-%H%M")
             spec_id = f"quick-{slug}-{timestamp}"
 
         # Check if spec already exists
@@ -1479,8 +1480,8 @@ def cmd_quick_create(
             title=description,
             status=SpecStatus.DRAFT,
             source_type="quick",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
+            created_at=now,
+            updated_at=now,
             metadata={"quick_task": True},
         )
         project.db.create_spec(spec)
@@ -1493,7 +1494,7 @@ def cmd_quick_create(
         task_md.write_text(
             f"# Quick Task\n\n"
             f"**Description:** {description}\n\n"
-            f"**Created:** {datetime.now().isoformat()}\n\n"
+            f"**Created:** {now.isoformat()}\n\n"
             f"**Source:** quick-create CLI\n"
         )
 

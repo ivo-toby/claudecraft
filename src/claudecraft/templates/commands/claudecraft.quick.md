@@ -12,7 +12,7 @@ $ARGUMENTS - Task description (e.g., "fix the login timeout bug")
 ## Step 1: Create Quick Spec
 
 ```bash
-claudecraft quick-create "$ARGUMENTS" --json
+claudecraft --json quick-create "$ARGUMENTS"
 ```
 
 Parse the JSON output to get the `spec_id` and `spec_dir`.

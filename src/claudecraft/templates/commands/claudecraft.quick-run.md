@@ -12,7 +12,7 @@ $ARGUMENTS - Spec ID (e.g., "quick-fix-login-timeout-20260228-1430")
 ## Step 1: Load Context
 
 ```bash
-claudecraft spec-get $ARGUMENTS --json
+claudecraft --json spec-get $ARGUMENTS
 ```
 
 Parse the JSON to get:
