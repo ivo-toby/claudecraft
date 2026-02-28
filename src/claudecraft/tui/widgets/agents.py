@@ -153,7 +153,6 @@ class AgentsPanel(VerticalScroll):
     def _refresh_agents(self) -> None:
         """Refresh agent status from database."""
         try:
-            from claudecraft.core.project import Project
 
             project = self.app.project  # type: ignore
             if not project:

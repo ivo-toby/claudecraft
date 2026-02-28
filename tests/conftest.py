@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from claudecraft.core.config import Config
-from claudecraft.core.database import Database
 from claudecraft.core.project import Project
 
 
@@ -15,16 +14,6 @@ def temp_dir():
     """Create a temporary directory for tests."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
-
-
-@pytest.fixture
-def temp_db(temp_dir):
-    """Create a temporary database for tests."""
-    db_path = temp_dir / "test.db"
-    db = Database(db_path)
-    db.init_schema()
-    yield db
-    db.close()
 
 
 @pytest.fixture

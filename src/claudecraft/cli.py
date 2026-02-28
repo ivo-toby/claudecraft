@@ -1965,7 +1965,7 @@ def cmd_task_create(
             if deps_list:
                 print(f"  Dependencies: {', '.join(deps_list)}")
             if completion_spec:
-                print(f"  Ralph Loop: Enabled")
+                print("  Ralph Loop: Enabled")
                 print(f"  Outcome: {completion_spec.outcome}")
                 if completion_spec.acceptance_criteria:
                     print(f"  Acceptance Criteria: {len(completion_spec.acceptance_criteria)}")
@@ -2103,7 +2103,7 @@ def cmd_task_followup(
             if parent:
                 print(f"  Parent: {parent}")
             if completion_spec:
-                print(f"  Ralph Loop: Enabled")
+                print("  Ralph Loop: Enabled")
         return 0
     except FileNotFoundError:
         if json_output:
@@ -2811,7 +2811,7 @@ If there are issues, output: DOCUMENTATION FAILED: [reason]
                 if success:
                     print(f"\nDocumentation generated successfully in {docs_path}")
                 else:
-                    print(f"\nDocumentation generation failed")
+                    print("\nDocumentation generation failed")
                     if result.stderr:
                         print(f"Error: {result.stderr[:500]}")
 

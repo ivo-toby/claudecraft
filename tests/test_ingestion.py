@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from claudecraft.core.database import SpecStatus
+from claudecraft.core.models import SpecStatus
 from claudecraft.ingestion.ingest import Ingestor
 
 

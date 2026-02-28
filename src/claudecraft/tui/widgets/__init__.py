@@ -4,9 +4,9 @@ from claudecraft.tui.widgets.agents import AgentsPanel
 from claudecraft.tui.widgets.spec_editor import SpecEditor
 from claudecraft.tui.widgets.specs import SpecsPanel
 from claudecraft.tui.widgets.swimlanes import (
+    SwimLane,
     SwimlaneBoard,
     SwimlaneScreen,
-    SwimLane,
     TaskCard,
     TaskDetailModal,
 )

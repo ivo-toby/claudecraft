@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from claudecraft.core.database import (
+from claudecraft.core.models import (
     CompletionCriteria,
     TaskCompletionSpec,
     VerificationMethod,
@@ -662,7 +662,7 @@ class TestVerificationDuration:
 from datetime import datetime
 from time import sleep
 
-from claudecraft.core.database import Task, TaskStatus
+from claudecraft.core.models import Task, TaskStatus
 from claudecraft.orchestration.ralph import (
     RalphLoop,
     RalphLoopConfig,

@@ -1,8 +1,6 @@
 """Specification validation against source documents."""
 
 import re
-from pathlib import Path
-from typing import Any
 
 from claudecraft.core.project import Project
 
@@ -56,7 +54,7 @@ class ValidationResult:
                 report += f"- ⚠ {warning}\n"
             report += "\n"
 
-        report += f"## Requirements Coverage\n\n"
+        report += "## Requirements Coverage\n\n"
         report += f"- Covered: {len(self.covered_requirements)}\n"
         report += f"- Missing: {len(self.missing_requirements)}\n\n"
 

@@ -1,7 +1,6 @@
 """Core modules for ClaudeCraft."""
 
 from claudecraft.core.config import Config
-from claudecraft.core.database import Database
 from claudecraft.core.models import (
     TASK_STATUS_MIGRATION,
     ActiveAgent,
@@ -20,7 +19,6 @@ from claudecraft.core.store import FileStore
 
 __all__ = [
     "Config",
-    "Database",
     "FileStore",
     "Project",
     "Spec",

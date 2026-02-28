@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from claudecraft.core.database import Spec, SpecStatus, Task, TaskStatus
+from claudecraft.core.models import Spec, SpecStatus, Task, TaskStatus
 
 
 class TestTUIApp:

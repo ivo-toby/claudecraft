@@ -3,8 +3,7 @@
 from textual.app import ComposeResult
 from textual.containers import Container, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Markdown, Static
-
+from textual.widgets import Button, Markdown, Static
 
 HELP_CONTENT = """
 # ClaudeCraft Help
