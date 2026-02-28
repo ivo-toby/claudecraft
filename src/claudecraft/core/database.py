@@ -973,6 +973,8 @@ class Database:
                 assigned_slot: int = cursor.fetchone()[0]
                 return assigned_slot
             else:
+                if not (1 <= slot <= 6):
+                    raise ValueError(f"Slot must be between 1 and 6, got {slot}")
                 cursor.execute(
                     """
                     INSERT OR REPLACE INTO active_agents
