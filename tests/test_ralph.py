@@ -842,8 +842,10 @@ class TestRalphLoopState:
         state = self.create_state()
         state.add_verification_result(True, False, "First")
         state.add_verification_result(True, True, "Second")
-        assert state.last_verification["reason"] == "Second"
-        assert state.last_verification["verified"] is True
+        last = state.last_verification
+        assert last is not None
+        assert last["reason"] == "Second"
+        assert last["verified"] is True
 
     def test_add_verification_result(self):
         """Test adding verification results."""
@@ -1212,10 +1214,12 @@ class TestRalphLoop:
         # Start with reviewer to test semantic defaults
         ralph.start(task, "reviewer")
 
-        assert ralph.state.completion_criteria.promise == "REVIEW_PASSED"
-        assert ralph.state.completion_criteria.verification_method == VerificationMethod.SEMANTIC
+        ralph_state = ralph.state
+        assert ralph_state is not None
+        assert ralph_state.completion_criteria.promise == "REVIEW_PASSED"
+        assert ralph_state.completion_criteria.verification_method == VerificationMethod.SEMANTIC
         # Should include acceptance criteria in check_for
-        assert "Works correctly" in ralph.state.completion_criteria.verification_config.get("check_for", [])
+        assert "Works correctly" in ralph_state.completion_criteria.verification_config.get("check_for", [])
 
 
 class TestRalphConfig:
