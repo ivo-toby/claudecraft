@@ -247,3 +247,76 @@ def test_worktree_manager_invalid_repo(tmp_path):
 
     with pytest.raises(ValueError, match="Not a git repository"):
         WorktreeManager(non_git_dir)
+
+
+class TestRunBootstrap:
+    """Tests for bootstrap command execution in worktrees."""
+
+    def test_run_bootstrap_success(self, git_repo):
+        """Test running bootstrap commands successfully."""
+        manager = WorktreeManager(git_repo)
+        manager.create_worktree("task-1")
+
+        results = manager.run_bootstrap("task-1", ["echo hello"])
+        assert len(results) == 1
+        assert results[0]["returncode"] == 0
+        assert "hello" in results[0]["stdout"]
+
+    def test_run_bootstrap_multiple_commands(self, git_repo):
+        """Test running multiple bootstrap commands."""
+        manager = WorktreeManager(git_repo)
+        manager.create_worktree("task-1")
+
+        results = manager.run_bootstrap(
+            "task-1", ["echo first", "echo second", "echo third"]
+        )
+        assert len(results) == 3
+        assert all(r["returncode"] == 0 for r in results)
+
+    def test_run_bootstrap_command_failure(self, git_repo):
+        """Test bootstrap with a failing command continues by default."""
+        manager = WorktreeManager(git_repo)
+        manager.create_worktree("task-1")
+
+        results = manager.run_bootstrap(
+            "task-1", ["echo ok", "false", "echo after"]
+        )
+        assert len(results) == 3
+        assert results[0]["returncode"] == 0
+        assert results[1]["returncode"] != 0
+        assert results[2]["returncode"] == 0  # continues after failure
+
+    def test_run_bootstrap_fail_fast(self, git_repo):
+        """Test bootstrap with fail_fast stops on first failure."""
+        manager = WorktreeManager(git_repo)
+        manager.create_worktree("task-1")
+
+        with pytest.raises(RuntimeError, match="Bootstrap command failed"):
+            manager.run_bootstrap(
+                "task-1", ["echo ok", "false", "echo never"], fail_fast=True
+            )
+
+    def test_run_bootstrap_nonexistent_worktree(self, git_repo):
+        """Test bootstrap on nonexistent worktree raises error."""
+        manager = WorktreeManager(git_repo)
+
+        with pytest.raises(ValueError, match="Worktree not found"):
+            manager.run_bootstrap("nonexistent", ["echo hello"])
+
+    def test_run_bootstrap_empty_commands(self, git_repo):
+        """Test bootstrap with empty command list."""
+        manager = WorktreeManager(git_repo)
+        manager.create_worktree("task-1")
+
+        results = manager.run_bootstrap("task-1", [])
+        assert results == []
+
+    def test_run_bootstrap_runs_in_worktree_dir(self, git_repo):
+        """Test that bootstrap commands execute in the worktree directory."""
+        manager = WorktreeManager(git_repo)
+        worktree_path = manager.create_worktree("task-1")
+
+        results = manager.run_bootstrap("task-1", ["pwd"])
+        assert results[0]["returncode"] == 0
+        # The pwd output should contain the worktree path
+        assert str(worktree_path) in results[0]["stdout"].strip()

@@ -122,10 +122,13 @@ class AgentsPanel(VerticalScroll):
     }
     """
 
+    _CLEANUP_EVERY_N_TICKS = 20  # Run stale cleanup every 20 ticks (10s at 0.5s interval)
+
     def __init__(self, **kwargs) -> None:
         """Initialize the agents panel."""
         super().__init__(**kwargs)
         self._poll_timer = None
+        self._tick_count = 0
 
     def compose(self) -> ComposeResult:
         """Compose the agents panel."""
@@ -138,8 +141,8 @@ class AgentsPanel(VerticalScroll):
         """Start polling when mounted."""
         # Initial refresh
         self._refresh_agents()
-        # Poll every 2 seconds
-        self._poll_timer = self.set_interval(2.0, self._refresh_agents)
+        # Poll every 0.5 seconds for responsive agent slot updates
+        self._poll_timer = self.set_interval(0.5, self._refresh_agents)
 
     def on_unmount(self) -> None:
         """Stop polling when unmounted."""
@@ -156,8 +159,10 @@ class AgentsPanel(VerticalScroll):
             if not project:
                 return
 
-            # Clean up stale agents
-            project.db.cleanup_stale_agents()
+            # Clean up stale agents (less frequently than UI refresh)
+            self._tick_count += 1
+            if self._tick_count % self._CLEANUP_EVERY_N_TICKS == 0:
+                project.db.cleanup_stale_agents()
 
             # Get active agents
             agents = project.db.list_active_agents()

@@ -95,3 +95,32 @@ class TestConfig:
 
         loaded = Config.load(temp_config.config_path)
         assert loaded.project_name == "modified-project"
+
+    def test_default_bootstrap_commands_empty(self, temp_config):
+        """Test that bootstrap_commands defaults to empty list."""
+        assert temp_config.bootstrap_commands == []
+
+    def test_bootstrap_commands_from_config(self, temp_dir):
+        """Test loading bootstrap commands from config file."""
+        import yaml
+
+        config_path = temp_dir / ".claudecraft" / "config.yaml"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+
+        config_data = {
+            "version": "1.0",
+            "project": {"name": "test-bootstrap"},
+            "agents": {"max_parallel": 6, "default_model": "sonnet"},
+            "execution": {
+                "max_iterations": 10,
+                "worktree_dir": ".worktrees",
+                "bootstrap": ["npm install", "pip install -e ."],
+            },
+            "database": {"path": ".claudecraft/claudecraft.db", "sync_jsonl": True},
+        }
+
+        with open(config_path, "w") as f:
+            yaml.dump(config_data, f)
+
+        config = Config.load(config_path)
+        assert config.bootstrap_commands == ["npm install", "pip install -e ."]

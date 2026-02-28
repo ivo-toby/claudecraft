@@ -40,8 +40,9 @@ $ARGUMENTS - Spec ID to create plan for
    - Risks and mitigations
 
 5. **Update Spec Status**
-   - Set status to: planned
-   - Record in database
+   ```bash
+   claudecraft spec-update {spec-id} --status planned
+   ```
 
 ## Output
 

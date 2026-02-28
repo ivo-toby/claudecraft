@@ -38,6 +38,7 @@ DEFAULT_CONFIG = {
         "max_iterations": 10,
         "timeout_minutes": 10,
         "worktree_dir": ".worktrees",
+        "bootstrap": [],
     },
     "database": {
         "path": ".claudecraft/claudecraft.db",
@@ -135,6 +136,8 @@ class Config:
     sync_jsonl: bool
     config_path: Path
     project_root: Path
+    # Bootstrap commands to run after worktree creation
+    bootstrap_commands: list[str] = field(default_factory=list)
     # Hooks configuration
     stop_hook_enabled: bool = True
     stop_hook_require_commit: bool = False
@@ -202,6 +205,9 @@ class Config:
             agent_defaults=ralph_config.get("agent_defaults", {}),
         )
 
+        # Extract bootstrap commands
+        bootstrap_commands = merged["execution"].get("bootstrap", [])
+
         return cls(
             project_name=merged["project"]["name"],
             max_parallel_agents=merged["agents"]["max_parallel"],
@@ -209,6 +215,7 @@ class Config:
             max_iterations=merged["execution"]["max_iterations"],
             timeout_minutes=merged["execution"].get("timeout_minutes", 10),
             worktree_dir=merged["execution"]["worktree_dir"],
+            bootstrap_commands=bootstrap_commands,
             database_path=merged["database"]["path"],
             sync_jsonl=merged["database"]["sync_jsonl"],
             config_path=path,

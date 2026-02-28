@@ -178,6 +178,64 @@ class WorktreeManager:
         worktree_repo = Repo(worktree_path)
         return worktree_repo.is_dirty(untracked_files=True)
 
+    def run_bootstrap(
+        self,
+        task_id: str,
+        commands: list[str],
+        fail_fast: bool = False,
+        timeout: int = 300,
+    ) -> list[dict[str, str | int]]:
+        """Run bootstrap commands in a worktree after creation.
+
+        Args:
+            task_id: Task ID of the worktree
+            commands: List of shell commands to run
+            fail_fast: If True, raise RuntimeError on first failure
+            timeout: Timeout per command in seconds (default: 300 = 5 minutes)
+
+        Returns:
+            List of result dicts with command, returncode, stdout, stderr
+        """
+        worktree_path = self.get_worktree_path(task_id)
+        if not worktree_path.exists():
+            raise ValueError(f"Worktree not found: {task_id}")
+
+        results = []
+        for cmd in commands:
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    shell=True,
+                    cwd=str(worktree_path),
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+                result = {
+                    "command": cmd,
+                    "returncode": proc.returncode,
+                    "stdout": proc.stdout,
+                    "stderr": proc.stderr,
+                }
+            except subprocess.TimeoutExpired:
+                result = {
+                    "command": cmd,
+                    "returncode": -1,
+                    "stdout": "",
+                    "stderr": f"Command timed out after {timeout}s",
+                }
+
+            results.append(result)
+
+            if fail_fast and result["returncode"] != 0:
+                raise RuntimeError(
+                    f"Bootstrap command failed: {cmd}\n"
+                    f"Exit code: {result['returncode']}\n"
+                    f"stderr: {result['stderr']}"
+                )
+
+        return results
+
     def get_branch_name(self, task_id: str) -> str:
         """Get the branch name for a task."""
         return f"task/{task_id}"

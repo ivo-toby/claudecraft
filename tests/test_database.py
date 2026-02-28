@@ -1,6 +1,6 @@
 """Tests for database management."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -908,3 +908,99 @@ class TestTaskWithCompletionSpec:
 
         d = task.to_dict()
         assert "completion_spec" not in d
+
+
+class TestAtomicSlotAssignment:
+    """Tests for atomic slot assignment in register_agent()."""
+
+    def test_register_agent_auto_slot(self, temp_db):
+        """Test auto-assigning slot to an agent."""
+        slot = temp_db.register_agent("task-1", "coder")
+        assert slot == 1
+
+    def test_register_agent_fills_slots_sequentially(self, temp_db):
+        """Test that slots are filled in order 1-6."""
+        slots = []
+        for i in range(6):
+            slot = temp_db.register_agent(f"task-{i}", "coder")
+            slots.append(slot)
+        assert slots == [1, 2, 3, 4, 5, 6]
+
+    def test_register_agent_no_slots_available(self, temp_db):
+        """Test error when all 6 slots are taken."""
+        for i in range(6):
+            temp_db.register_agent(f"task-{i}", "coder")
+        with pytest.raises(ValueError, match="No available agent slots"):
+            temp_db.register_agent("task-7", "coder")
+
+    def test_register_agent_reuses_freed_slot(self, temp_db):
+        """Test that a freed slot is reused."""
+        temp_db.register_agent("task-1", "coder")
+        slot2 = temp_db.register_agent("task-2", "coder")
+        assert slot2 == 2
+
+        # Free slot 1
+        temp_db.deregister_agent(task_id="task-1")
+
+        # New agent should get slot 1 (lowest available)
+        slot3 = temp_db.register_agent("task-3", "coder")
+        assert slot3 == 1
+
+    def test_register_agent_explicit_slot(self, temp_db):
+        """Test registering with an explicit slot number."""
+        slot = temp_db.register_agent("task-1", "coder", slot=5)
+        assert slot == 5
+
+        agents = temp_db.list_active_agents()
+        assert len(agents) == 1
+        assert agents[0].slot == 5
+
+
+class TestStaleAgentCleanup:
+    """Tests for time-based stale agent cleanup."""
+
+    def test_cleanup_old_pidless_agents(self, temp_db):
+        """Test that pid=None agents older than threshold are cleaned."""
+        # Register an agent without PID
+        temp_db.register_agent("task-old", "coder", pid=None)
+
+        # Manually backdate the started_at
+        old_time = (datetime.now() - timedelta(hours=2)).isoformat()
+        temp_db.conn.execute(
+            "UPDATE active_agents SET started_at = ? WHERE task_id = ?",
+            (old_time, "task-old"),
+        )
+        temp_db.conn.commit()
+
+        cleaned = temp_db.cleanup_stale_agents(max_age_minutes=60)
+        assert cleaned == 1
+        assert len(temp_db.list_active_agents()) == 0
+
+    def test_keep_recent_pidless_agents(self, temp_db):
+        """Test that recent pid=None agents are NOT cleaned."""
+        temp_db.register_agent("task-new", "coder", pid=None)
+
+        cleaned = temp_db.cleanup_stale_agents(max_age_minutes=60)
+        assert cleaned == 0
+        assert len(temp_db.list_active_agents()) == 1
+
+    def test_cleanup_mixed_agents(self, temp_db):
+        """Test cleanup with mix of old pidless and recent agents."""
+        # Register a recent agent
+        temp_db.register_agent("task-recent", "coder", pid=None)
+
+        # Register an old agent
+        temp_db.register_agent("task-old", "reviewer", pid=None)
+        old_time = (datetime.now() - timedelta(hours=3)).isoformat()
+        temp_db.conn.execute(
+            "UPDATE active_agents SET started_at = ? WHERE task_id = ?",
+            (old_time, "task-old"),
+        )
+        temp_db.conn.commit()
+
+        cleaned = temp_db.cleanup_stale_agents(max_age_minutes=60)
+        assert cleaned == 1
+
+        agents = temp_db.list_active_agents()
+        assert len(agents) == 1
+        assert agents[0].task_id == "task-recent"
