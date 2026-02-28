@@ -41,3 +41,12 @@ def temp_config(temp_dir):
     config_path = temp_dir / ".claudecraft" / "config.yaml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     return Config.create_default(config_path, "test-project")
+
+
+@pytest.fixture
+def temp_store(tmp_path: Path):
+    """Create a temporary FileStore for tests."""
+    from claudecraft.core.store import FileStore
+    (tmp_path / ".claudecraft").mkdir()
+    (tmp_path / "specs").mkdir()
+    return FileStore(tmp_path)
