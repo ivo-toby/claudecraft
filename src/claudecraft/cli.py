@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -184,7 +185,7 @@ def main() -> int:
     spec_create_parser.add_argument("--title", help="Spec title (default: spec ID)")
     spec_create_parser.add_argument(
         "--source-type",
-        choices=["brd", "prd"],
+        choices=["brd", "prd", "quick"],
         default="brd",
         help="Source document type (default: brd)",
     )
@@ -206,10 +207,21 @@ def main() -> int:
         help="New status",
     )
     spec_update_parser.add_argument("--title", help="New title")
+    spec_update_parser.add_argument(
+        "--metadata",
+        help="JSON string of metadata to merge (e.g. '{\"review\": true}')",
+    )
 
     # spec-get command
     spec_get_parser = subparsers.add_parser("spec-get", help="Get specification details")
     spec_get_parser.add_argument("spec_id", help="Spec ID to get")
+
+    # quick-create command
+    quick_create_parser = subparsers.add_parser(
+        "quick-create", help="Create a lightweight quick-task spec"
+    )
+    quick_create_parser.add_argument("description", help="Task description")
+    quick_create_parser.add_argument("--id", dest="spec_id", help="Custom spec ID (auto-generated if omitted)")
 
     # task-create command
     task_create_parser = subparsers.add_parser("task-create", help="Create a new task")
@@ -495,7 +507,9 @@ def main() -> int:
             args.json,
         )
     elif args.command == "spec-update":
-        return cmd_spec_update(args.spec_id, args.status, args.title, args.json)
+        return cmd_spec_update(args.spec_id, args.status, args.title, args.metadata, args.json)
+    elif args.command == "quick-create":
+        return cmd_quick_create(args.description, args.spec_id, args.json)
     elif args.command == "spec-get":
         return cmd_spec_get(args.spec_id, args.json)
     elif args.command == "task-create":
@@ -1434,10 +1448,91 @@ def cmd_spec_create(
         return 1
 
 
+def cmd_quick_create(
+    description: str,
+    spec_id: str | None = None,
+    json_output: bool = False,
+) -> int:
+    """Create a lightweight quick-task spec."""
+    try:
+        project = Project.load()
+        now = datetime.now()
+
+        # Generate spec ID from description + timestamp if not provided
+        if not spec_id:
+            slug = re.sub(r"[^a-z0-9]+", "-", description.lower()).strip("-")[:40]
+            timestamp = now.strftime("%Y%m%d-%H%M")
+            spec_id = f"quick-{slug}-{timestamp}"
+
+        # Check if spec already exists
+        existing = project.db.get_spec(spec_id)
+        if existing:
+            if json_output:
+                result = {"success": False, "error": f"Spec already exists: {spec_id}"}
+                print(json.dumps(result, indent=2))
+            else:
+                print(f"Error: Spec already exists: {spec_id}", file=sys.stderr)
+            return 1
+
+        # Create the spec
+        spec = Spec(
+            id=spec_id,
+            title=description,
+            status=SpecStatus.DRAFT,
+            source_type="quick",
+            created_at=now,
+            updated_at=now,
+            metadata={"quick_task": True},
+        )
+        project.db.create_spec(spec)
+
+        # Create spec directory
+        spec_dir = project.ensure_spec_dir(spec_id)
+
+        # Write task.md with the original description
+        task_md = spec_dir / "task.md"
+        task_md.write_text(
+            f"# Quick Task\n\n"
+            f"**Description:** {description}\n\n"
+            f"**Created:** {now.isoformat()}\n\n"
+            f"**Source:** quick-create CLI\n"
+        )
+
+        if json_output:
+            result = {
+                "success": True,
+                "spec_id": spec_id,
+                "spec_dir": str(spec_dir),
+                "task_md": str(task_md),
+                "spec": spec.to_dict(),
+            }
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"Created quick spec: {spec_id}")
+            print(f"  Directory: {spec_dir}")
+            print(f"  Task: {task_md}")
+        return 0
+    except FileNotFoundError:
+        if json_output:
+            result = {"success": False, "error": "Not a ClaudeCraft project"}
+            print(json.dumps(result, indent=2))
+        else:
+            print("Not a ClaudeCraft project (no .claudecraft directory found)", file=sys.stderr)
+        return 1
+    except Exception as e:
+        if json_output:
+            result = {"success": False, "error": str(e)}
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
 def cmd_spec_update(
     spec_id: str,
     status: str | None = None,
     title: str | None = None,
+    metadata_json: str | None = None,
     json_output: bool = False,
 ) -> int:
     """Update a specification."""
@@ -1458,6 +1553,9 @@ def cmd_spec_update(
             spec.status = SpecStatus(status)
         if title:
             spec.title = title
+        if metadata_json:
+            new_metadata = json.loads(metadata_json)
+            spec.metadata = {**spec.metadata, **new_metadata}
         spec.updated_at = datetime.now()
 
         project.db.update_spec(spec)

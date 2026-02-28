@@ -18,6 +18,7 @@ from claudecraft.cli import (
     cmd_task_update,
     cmd_spec_create,
     cmd_spec_update,
+    cmd_quick_create,
     cmd_spec_get,
     cmd_task_create,
     cmd_task_followup,
@@ -351,6 +352,89 @@ class TestCmdSpecCreate:
         assert result == 1
 
 
+class TestCmdQuickCreate:
+    """Tests for quick-create command."""
+
+    def test_quick_create(self, cli_project):
+        """Test creating a quick task spec."""
+        result = cmd_quick_create(
+            description="fix the login timeout bug",
+            json_output=False,
+        )
+        assert result == 0
+
+        # Find the created spec (ID is auto-generated)
+        specs = cli_project.db.list_specs()
+        quick_specs = [s for s in specs if s.source_type == "quick"]
+        assert len(quick_specs) == 1
+
+        spec = quick_specs[0]
+        assert spec.title == "fix the login timeout bug"
+        assert spec.source_type == "quick"
+        assert spec.status == SpecStatus.DRAFT
+        assert spec.metadata.get("quick_task") is True
+        assert spec.id.startswith("quick-fix-the-login-timeout-bug-")
+
+    def test_quick_create_custom_id(self, cli_project):
+        """Test creating a quick task with custom ID."""
+        result = cmd_quick_create(
+            description="refactor auth module",
+            spec_id="my-custom-id",
+            json_output=False,
+        )
+        assert result == 0
+
+        spec = cli_project.db.get_spec("my-custom-id")
+        assert spec is not None
+        assert spec.title == "refactor auth module"
+        assert spec.source_type == "quick"
+
+    def test_quick_create_json(self, cli_project):
+        """Test quick-create with JSON output."""
+        with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
+            result = cmd_quick_create(
+                description="add logging",
+                spec_id="quick-logging",
+                json_output=True,
+            )
+            output = json.loads(mock_stdout.getvalue())
+
+        assert result == 0
+        assert output["success"] is True
+        assert output["spec_id"] == "quick-logging"
+        assert "task_md" in output
+
+    def test_quick_create_writes_task_md(self, cli_project):
+        """Test that quick-create writes task.md."""
+        cmd_quick_create(
+            description="add dark mode",
+            spec_id="quick-dark-mode",
+            json_output=False,
+        )
+
+        task_md = cli_project.root / "specs" / "quick-dark-mode" / "task.md"
+        assert task_md.exists()
+        content = task_md.read_text()
+        assert "add dark mode" in content
+
+    def test_quick_create_duplicate(self, cli_project):
+        """Test creating a duplicate quick task."""
+        cmd_quick_create(description="first", spec_id="quick-dup", json_output=False)
+        result = cmd_quick_create(description="second", spec_id="quick-dup", json_output=False)
+        assert result == 1
+
+    def test_quick_create_creates_spec_dirs(self, cli_project):
+        """Test that quick-create creates implementation and qa subdirectories."""
+        cmd_quick_create(
+            description="test dirs",
+            spec_id="quick-dirs",
+            json_output=False,
+        )
+        spec_dir = cli_project.root / "specs" / "quick-dirs"
+        assert (spec_dir / "implementation").is_dir()
+        assert (spec_dir / "qa").is_dir()
+
+
 class TestCmdSpecUpdate:
     """Tests for spec-update command."""
 
@@ -369,6 +453,31 @@ class TestCmdSpecUpdate:
 
         spec = cli_project_with_data.db.get_spec("test-spec-1")
         assert spec.title == "Updated Title"
+
+    def test_update_spec_metadata(self, cli_project_with_data):
+        """Test updating spec metadata and preserving existing keys."""
+        # First, set initial metadata
+        result = cmd_spec_update(
+            "test-spec-1",
+            metadata_json='{"quick_task": true}',
+            json_output=False,
+        )
+        assert result == 0
+
+        # Then, merge additional metadata keys
+        result = cmd_spec_update(
+            "test-spec-1",
+            metadata_json='{"review": true, "test": false}',
+            json_output=False,
+        )
+        assert result == 0
+
+        spec = cli_project_with_data.db.get_spec("test-spec-1")
+        # Existing key preserved
+        assert spec.metadata["quick_task"] is True
+        # New keys added
+        assert spec.metadata["review"] is True
+        assert spec.metadata["test"] is False
 
     def test_update_nonexistent_spec(self, cli_project):
         """Test updating non-existent spec."""
@@ -848,6 +957,16 @@ class TestMain:
         with patch("sys.argv", ["claudecraft", "spec-create", "test-spec", "--title", "Test"]):
             result = main()
         assert result == 0
+
+    def test_main_quick_create(self, cli_project):
+        """Test main with quick-create command."""
+        with patch("sys.argv", ["claudecraft", "quick-create", "fix a bug", "--id", "quick-test"]):
+            result = main()
+        assert result == 0
+
+        spec = cli_project.db.get_spec("quick-test")
+        assert spec is not None
+        assert spec.source_type == "quick"
 
     def test_main_task_create(self, cli_project_with_data):
         """Test main with task-create command."""
