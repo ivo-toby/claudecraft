@@ -82,7 +82,7 @@ $ARGUMENTS - Spec ID to validate
 7. **Update Spec Status**
    - If PASS: Set status to: completed
    - If FAIL: Set status to: blocked
-   - Record in database
+   - Record in flat-file store
 
 ## QA Report Format
 

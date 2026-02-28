@@ -19,7 +19,7 @@ Initialize ClaudeCraft in this project.
    - .claudecraft/config.yaml with defaults
    - .claudecraft/constitution.md template
 
-3. Initialize SQLite database:
+3. Initialize flat-file store:
    - .claudecraft/claudecraft.db
 
 4. Copy agent definitions (if not present)

@@ -47,3 +47,10 @@ Phase 1: Foundation
 - /claudecraft.ingest: Import BRD/PRD
 - /claudecraft.specify: Generate specification
 - /claudecraft.implement: Execute implementation
+
+## Active Technologies
+- Python 3.12+ with uv + Textual (TUI), GitPython (worktrees), PyYAML (config) (001-flat-file-store)
+- Flat JSON files (atomic write via temp+os.replace) (001-flat-file-store)
+
+## Recent Changes
+- 001-flat-file-store: Added Python 3.12+ with uv + Textual (TUI), GitPython (worktrees), PyYAML (config)
