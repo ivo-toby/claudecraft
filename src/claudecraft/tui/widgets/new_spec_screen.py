@@ -7,7 +7,7 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Input, Label, Select, Static
 
-from claudecraft.core.database import Spec, SpecStatus
+from claudecraft.core.models import Spec, SpecStatus
 
 
 class NewSpecScreen(Screen):

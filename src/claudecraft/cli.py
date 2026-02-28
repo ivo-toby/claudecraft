@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from claudecraft.core.config import Config
-from claudecraft.core.database import (
+from claudecraft.core.models import (
     CompletionCriteria,
     Spec,
     SpecStatus,
@@ -649,7 +649,7 @@ def cmd_status(json_output: bool = False) -> int:
 
         # Get stats
         specs = project.db.list_specs()
-        tasks = project.db.list_tasks()
+        tasks = [t for spec in specs for t in project.db.list_tasks(spec.id)]
 
         if json_output:
             result = {
@@ -768,7 +768,11 @@ def cmd_list_tasks(
                     print(f"Error: Invalid status '{status_filter}'", file=sys.stderr)
                 return 1
 
-        tasks = project.db.list_tasks(spec_id=spec_id, status=status_enum)
+        if spec_id:
+            tasks = project.db.list_tasks(spec_id=spec_id, status=status_enum)
+        else:
+            all_specs = project.db.list_specs()
+            tasks = [t for spec in all_specs for t in project.db.list_tasks(spec.id, status=status_enum)]
 
         if json_output:
             result = {
@@ -816,8 +820,18 @@ def cmd_task_update(task_id: str, status: str, json_output: bool = False) -> int
         # Convert status string to TaskStatus enum
         status_enum = TaskStatus(status)
 
+        # Find task to get spec_id
+        existing = project.db.get_task(task_id)
+        if not existing:
+            if json_output:
+                result = {"success": False, "error": f"Task not found: {task_id}"}
+                print(json.dumps(result, indent=2))
+            else:
+                print(f"Error: Task not found: {task_id}", file=sys.stderr)
+            return 1
+
         # Update the task
-        task = project.db.update_task_status(task_id, status_enum)
+        task = project.db.update_task_status(task_id, existing.spec_id, status_enum)
 
         if json_output:
             result = {
@@ -1100,7 +1114,7 @@ def cmd_agent_start(
         project = Project.load()
         # Don't register PID - CLI process exits immediately
         # PID-based cleanup would remove the agent right away
-        slot = project.db.register_agent(
+        slot = project.db.claim_agent_slot(
             task_id=task_id,
             agent_type=agent_type,
             pid=None,  # No PID means cleanup_stale_agents won't remove it
@@ -1151,7 +1165,14 @@ def cmd_agent_stop(
                 print("Error: Must specify --task or --slot", file=sys.stderr)
             return 1
 
-        success = project.db.deregister_agent(task_id=task_id, slot=slot)
+        if slot is not None:
+            success = project.db.release_agent_slot(slot)
+        elif task_id is not None:
+            # Release by task_id
+            project.db._release_agent_slot_for_task(task_id)
+            success = True
+        else:
+            success = False
 
         if json_output:
             result = {"success": success, "task_id": task_id, "slot": slot}
@@ -1246,10 +1267,10 @@ def cmd_ralph_status(
 
         # Get loops, optionally filtered
         if task_id:
-            loop = project.db.get_ralph_loop(task_id)
-            loops = [loop] if loop else []
+            all_loops = project.db.list_active_ralph_loops()
+            loops = [lp for lp in all_loops if lp.task_id == task_id]
         else:
-            loops = project.db.list_ralph_loops(status=status)
+            loops = project.db.list_active_ralph_loops(status=status)
 
         # Filter by status if task_id was specified and status filter given
         if task_id and status:
@@ -1319,7 +1340,12 @@ def cmd_ralph_cancel(
         project = Project.load()
 
         # Check if loop exists
-        loop = project.db.get_ralph_loop(task_id, agent_type)
+        if agent_type:
+            loop = project.db.get_ralph_loop(task_id, agent_type)
+        else:
+            all_loops = project.db.list_active_ralph_loops()
+            task_loops = [lp for lp in all_loops if lp.task_id == task_id]
+            loop = task_loops[0] if task_loops else None
         if not loop:
             if json_output:
                 result = {
@@ -2315,209 +2341,46 @@ def cmd_memory_cleanup(days: int = 90, json_output: bool = False) -> int:
 
 
 def cmd_sync_export(json_output: bool = False) -> int:
-    """Export database to JSONL file."""
-    try:
-        project = Project.load()
-        project.sync.export_all()
-
-        # Count entities
-        specs = project.db.list_specs()
-        tasks = project.db.list_tasks()
-
-        if json_output:
-            result = {
-                "success": True,
-                "jsonl_path": str(project.jsonl_path),
-                "specs_exported": len(specs),
-                "tasks_exported": len(tasks),
-            }
-            print(json.dumps(result, indent=2))
-        else:
-            print(f"Exported to: {project.jsonl_path}")
-            print(f"  Specs: {len(specs)}")
-            print(f"  Tasks: {len(tasks)}")
-        return 0
-    except FileNotFoundError:
-        if json_output:
-            result = {"success": False, "error": "Not a ClaudeCraft project"}
-            print(json.dumps(result, indent=2))
-        else:
-            print("Not a ClaudeCraft project (no .claudecraft directory found)", file=sys.stderr)
-        return 1
-    except Exception as e:
-        if json_output:
-            result = {"success": False, "error": str(e)}
-            print(json.dumps(result, indent=2))
-        else:
-            print(f"Error: {e}", file=sys.stderr)
-        return 1
+    """Export database to JSONL file (deprecated)."""
+    msg = "Not available: JSONL sync has been removed"
+    if json_output:
+        print(json.dumps({"success": False, "error": msg}, indent=2))
+    else:
+        print(msg, file=sys.stderr)
+    return 1
 
 
 def cmd_sync_import(json_output: bool = False) -> int:
-    """Import from JSONL file to database."""
-    try:
-        project = Project.load()
-
-        if not project.jsonl_path.exists():
-            if json_output:
-                result = {"success": False, "error": "No JSONL file found"}
-                print(json.dumps(result, indent=2))
-            else:
-                print(f"No JSONL file found at: {project.jsonl_path}", file=sys.stderr)
-            return 1
-
-        # Count before import
-        specs_before = len(project.db.list_specs())
-        tasks_before = len(project.db.list_tasks())
-
-        project.sync.import_changes()
-
-        # Count after import
-        specs_after = len(project.db.list_specs())
-        tasks_after = len(project.db.list_tasks())
-
-        if json_output:
-            result = {
-                "success": True,
-                "jsonl_path": str(project.jsonl_path),
-                "specs_before": specs_before,
-                "specs_after": specs_after,
-                "tasks_before": tasks_before,
-                "tasks_after": tasks_after,
-            }
-            print(json.dumps(result, indent=2))
-        else:
-            print(f"Imported from: {project.jsonl_path}")
-            print(f"  Specs: {specs_before} → {specs_after}")
-            print(f"  Tasks: {tasks_before} → {tasks_after}")
-        return 0
-    except FileNotFoundError:
-        if json_output:
-            result = {"success": False, "error": "Not a ClaudeCraft project"}
-            print(json.dumps(result, indent=2))
-        else:
-            print("Not a ClaudeCraft project (no .claudecraft directory found)", file=sys.stderr)
-        return 1
-    except Exception as e:
-        if json_output:
-            result = {"success": False, "error": str(e)}
-            print(json.dumps(result, indent=2))
-        else:
-            print(f"Error: {e}", file=sys.stderr)
-        return 1
+    """Import from JSONL file to database (deprecated)."""
+    msg = "Not available: JSONL sync has been removed"
+    if json_output:
+        print(json.dumps({"success": False, "error": msg}, indent=2))
+    else:
+        print(msg, file=sys.stderr)
+    return 1
 
 
 def cmd_sync_compact(json_output: bool = False) -> int:
-    """Compact JSONL file by removing superseded changes."""
-    try:
-        project = Project.load()
-
-        if not project.jsonl_path.exists():
-            if json_output:
-                result = {"success": False, "error": "No JSONL file found"}
-                print(json.dumps(result, indent=2))
-            else:
-                print(f"No JSONL file found at: {project.jsonl_path}", file=sys.stderr)
-            return 1
-
-        # Get size before
-        size_before = project.jsonl_path.stat().st_size
-
-        # Count lines before
-        with open(project.jsonl_path) as f:
-            lines_before = sum(1 for _ in f)
-
-        project.sync.compact()
-
-        # Get size after
-        size_after = project.jsonl_path.stat().st_size
-
-        # Count lines after
-        with open(project.jsonl_path) as f:
-            lines_after = sum(1 for _ in f)
-
-        if json_output:
-            result = {
-                "success": True,
-                "jsonl_path": str(project.jsonl_path),
-                "lines_before": lines_before,
-                "lines_after": lines_after,
-                "bytes_before": size_before,
-                "bytes_after": size_after,
-            }
-            print(json.dumps(result, indent=2))
-        else:
-            print(f"Compacted: {project.jsonl_path}")
-            print(f"  Lines: {lines_before} → {lines_after}")
-            print(f"  Size: {size_before} → {size_after} bytes")
-        return 0
-    except FileNotFoundError:
-        if json_output:
-            result = {"success": False, "error": "Not a ClaudeCraft project"}
-            print(json.dumps(result, indent=2))
-        else:
-            print("Not a ClaudeCraft project (no .claudecraft directory found)", file=sys.stderr)
-        return 1
-    except Exception as e:
-        if json_output:
-            result = {"success": False, "error": str(e)}
-            print(json.dumps(result, indent=2))
-        else:
-            print(f"Error: {e}", file=sys.stderr)
-        return 1
+    """Compact JSONL file by removing superseded changes (deprecated)."""
+    msg = "Not available: JSONL sync has been removed"
+    if json_output:
+        print(json.dumps({"success": False, "error": msg}, indent=2))
+    else:
+        print(msg, file=sys.stderr)
+    return 1
 
 
 def cmd_sync_status(json_output: bool = False) -> int:
-    """Show JSONL sync status."""
+    """Show JSONL sync status (deprecated)."""
     try:
-        project = Project.load()
-
-        # Check if sync is enabled
-        sync_enabled = project.config.sync_jsonl
-        jsonl_exists = project.jsonl_path.exists()
-
-        jsonl_stats = {}
-        if jsonl_exists:
-            size = project.jsonl_path.stat().st_size
-            with open(project.jsonl_path) as f:
-                lines = sum(1 for _ in f)
-            mtime = datetime.fromtimestamp(project.jsonl_path.stat().st_mtime)
-            jsonl_stats = {
-                "lines": lines,
-                "bytes": size,
-                "last_modified": mtime.isoformat(),
-            }
-
-        # Database stats
-        specs_count = len(project.db.list_specs())
-        tasks_count = len(project.db.list_tasks())
-
+        # Attempt to load project to verify it exists (for "outside project" test)
+        Project.load()
+        msg = "Not available: JSONL sync has been removed"
         if json_output:
-            result = {
-                "success": True,
-                "sync_enabled": sync_enabled,
-                "jsonl_path": str(project.jsonl_path),
-                "jsonl_exists": jsonl_exists,
-                "jsonl_stats": jsonl_stats,
-                "database": {
-                    "specs": specs_count,
-                    "tasks": tasks_count,
-                },
-            }
-            print(json.dumps(result, indent=2))
+            print(json.dumps({"success": False, "error": msg}, indent=2))
         else:
-            print("JSONL Sync Status")
-            print(f"  Enabled: {'Yes' if sync_enabled else 'No'}")
-            print(f"  Path: {project.jsonl_path}")
-            print(f"  Exists: {'Yes' if jsonl_exists else 'No'}")
-            if jsonl_stats:
-                print(f"  Lines: {jsonl_stats['lines']}")
-                print(f"  Size: {jsonl_stats['bytes']} bytes")
-                print(f"  Last modified: {jsonl_stats['last_modified']}")
-            print(f"\nDatabase:")
-            print(f"  Specs: {specs_count}")
-            print(f"  Tasks: {tasks_count}")
-        return 0
+            print(msg, file=sys.stderr)
+        return 1
     except FileNotFoundError:
         if json_output:
             result = {"success": False, "error": "Not a ClaudeCraft project"}

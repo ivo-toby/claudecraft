@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from claudecraft.core.database import (
+from claudecraft.core.models import (
     CompletionCriteria,
     Task,
     TaskCompletionSpec,

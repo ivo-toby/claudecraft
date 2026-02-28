@@ -10,7 +10,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from claudecraft.core.database import CompletionCriteria, Task, TaskStatus, VerificationMethod
+from claudecraft.core.models import (
+    CompletionCriteria,
+    ExecutionLog,
+    Task,
+    TaskStatus,
+    VerificationMethod,
+)
 from claudecraft.core.project import Project
 from claudecraft.orchestration.agent_pool import AgentPool, AgentType
 from claudecraft.orchestration.ralph import (
@@ -126,12 +132,17 @@ class ExecutionPipeline:
         total_iterations = 0
 
         for stage in self.pipeline:
-            # Register agent in database for TUI visibility
-            self.project.db.register_agent(
-                task_id=task.id,
-                agent_type=stage.agent_type.value,
-                worktree=str(worktree_path),
-            )
+            # Claim agent slot in store for TUI visibility
+            slot: int | None = None
+            try:
+                slot = self.project.db.claim_agent_slot(
+                    task_id=task.id,
+                    agent_type=stage.agent_type.value,
+                    pid=os.getpid(),
+                    worktree=str(worktree_path),
+                )
+            except RuntimeError:
+                logger.warning(f"No agent slots available for task {task.id}")
 
             # Update task status
             task.status = self._get_stage_status(stage.agent_type)
@@ -147,14 +158,16 @@ class ExecutionPipeline:
 
                     # Log final result (individual iterations logged inside ralph method)
                     if not result.ralph_verified:
-                        self.project.db.log_execution(
+                        self.project.db.append_execution_log(ExecutionLog(
+                            id=0,
                             task_id=task.id,
                             agent_type=stage.agent_type.value,
                             action=f"{stage.name} (Ralph final)",
                             output=result.output[:10000],
                             success=result.success,
                             duration_ms=result.duration_ms,
-                        )
+                            created_at=datetime.now(),
+                        ))
                 else:
                     # Use traditional iteration-based execution
                     result = self._execute_stage_traditional(
@@ -162,8 +175,9 @@ class ExecutionPipeline:
                     )
                     total_iterations = result.iteration  # Update total from result
             finally:
-                # Deregister agent
-                self.project.db.deregister_agent(task_id=task.id)
+                # Release agent slot
+                if slot is not None:
+                    self.project.db.release_agent_slot(slot)
 
             if not result.success:
                 # Stage failed - reset to todo
@@ -218,14 +232,16 @@ class ExecutionPipeline:
             last_result = result
 
             # Log execution
-            self.project.db.log_execution(
+            self.project.db.append_execution_log(ExecutionLog(
+                id=0,
                 task_id=task.id,
                 agent_type=stage.agent_type.value,
                 action=stage.name,
                 output=result.output[:10000],
                 success=result.success,
                 duration_ms=result.duration_ms,
-            )
+                created_at=datetime.now(),
+            ))
 
             if result.success:
                 # Update result with final total_iterations
@@ -823,12 +839,14 @@ Output one of:
                 f"for task {task.id} stage {stage.name}"
             )
 
-            # Log to database
-            self.project.db.log_execution(
+            # Log to store
+            self.project.db.append_execution_log(ExecutionLog(
+                id=0,
                 task_id=task.id,
                 agent_type=stage.agent_type.value,
                 action=f"{stage.name} (Ralph iter {ralph.state.iteration})",
                 output=output[:5000],  # Truncate for logging
                 success=success,
                 duration_ms=0,  # Duration tracked at loop level
-            )
+                created_at=datetime.now(),
+            ))

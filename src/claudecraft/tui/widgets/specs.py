@@ -5,7 +5,7 @@ from textual.containers import VerticalScroll
 from textual.message import Message
 from textual.widgets import DataTable
 
-from claudecraft.core.database import SpecStatus
+from claudecraft.core.models import SpecStatus
 
 
 class SpecsPanel(VerticalScroll):

@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable
 
-from claudecraft.core.database import Task, TaskStatus
+from claudecraft.core.models import Task, TaskStatus
 
 
 class AgentType(str, Enum):

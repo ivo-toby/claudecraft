@@ -6,25 +6,19 @@ from datetime import datetime
 from pathlib import Path
 
 from claudecraft.core.config import Config
-from claudecraft.core.database import Database, Task, TaskStatus
-from claudecraft.core.sync import JsonlSync, SyncedDatabase
+from claudecraft.core.models import Spec, SpecStatus, Task, TaskStatus
+from claudecraft.core.store import FileStore
 from claudecraft.memory.store import MemoryStore
 
 
 class Project:
     """A ClaudeCraft project."""
 
-    def __init__(self, root: Path, config: Config, db: Database):
+    def __init__(self, root: Path, config: Config, db: FileStore):
         """Initialize project."""
         self.root = root
         self.config = config
         self.db = db
-        self.jsonl_path = root / ".claudecraft" / "specs.jsonl"
-        # If using SyncedDatabase, sync is built-in; otherwise create JsonlSync for manual operations
-        if isinstance(db, SyncedDatabase):
-            self.sync = db.sync
-        else:
-            self.sync = JsonlSync(db, self.jsonl_path)
         self.memory = MemoryStore(root / ".claudecraft" / "memory")
 
     @classmethod
@@ -61,14 +55,8 @@ class Project:
         project_name = path.name
         config = Config.create_default(config_path, project_name)
 
-        # Initialize database (use SyncedDatabase if sync_jsonl is enabled)
-        db_path = path / config.database_path
-        jsonl_path = path / ".claudecraft" / "specs.jsonl"
-        if config.sync_jsonl:
-            db = SyncedDatabase(db_path, jsonl_path)
-        else:
-            db = Database(db_path)
-        db.init_schema()
+        # Initialize FileStore
+        db = FileStore(path)
 
         # Create constitution template
         constitution_path = path / ".claudecraft" / "constitution.md"
@@ -154,28 +142,12 @@ class Project:
     def load(cls, path: Path | None = None) -> "Project":
         """Load an existing ClaudeCraft project."""
         config = Config.load(path)
-        db_path = config.project_root / config.database_path
-        jsonl_path = config.project_root / ".claudecraft" / "specs.jsonl"
-
-        # Use SyncedDatabase if sync_jsonl is enabled
-        if config.sync_jsonl:
-            db = SyncedDatabase(db_path, jsonl_path)
-        else:
-            db = Database(db_path)
-
-        db.init_schema()  # Ensure schema is up to date
-
-        project = cls(config.project_root, config, db)
-
-        # Import from JSONL on load (for git-synced changes from other collaborators)
-        if config.sync_jsonl and jsonl_path.exists():
-            project.sync.import_changes()
-
-        return project
+        db = FileStore(config.project_root)
+        return cls(config.project_root, config, db)
 
     def close(self) -> None:
         """Close project resources."""
-        self.db.close()
+        pass  # FileStore has no close method
 
     def spec_dir(self, spec_id: str) -> Path:
         """Get the directory for a specification."""
@@ -279,7 +251,6 @@ class Project:
 
     def scan_and_register_specs(self) -> int:
         """Scan specs directory and register any specs not in database."""
-        from claudecraft.core.database import Spec, SpecStatus
 
         specs_dir = self.root / "specs"
         if not specs_dir.exists():

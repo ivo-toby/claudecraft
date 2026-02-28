@@ -1,21 +1,31 @@
 """Tests for execution pipeline."""
 
 import json
-import pytest
-from pathlib import Path
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from claudecraft.core.database import Task, TaskStatus, Spec, SpecStatus
+import pytest
+
+from claudecraft.core.models import (
+    CompletionCriteria,
+    Spec,
+    SpecStatus,
+    Task,
+    TaskCompletionSpec,
+    TaskStatus,
+    VerificationMethod,
+)
 from claudecraft.core.project import Project
 from claudecraft.orchestration.agent_pool import AgentPool, AgentType
 from claudecraft.orchestration.execution import (
-    ExecutionPipeline,
-    PipelineStage,
-    ExecutionResult,
-    AGENT_TYPE_TO_NAME,
     AGENT_ALLOWED_TOOLS,
+    AGENT_TYPE_TO_NAME,
+    ExecutionPipeline,
+    ExecutionResult,
+    PipelineStage,
 )
+from claudecraft.orchestration.ralph import RalphLoop, RalphLoopConfig
 
 
 @pytest.fixture
@@ -39,9 +49,7 @@ def pipeline(project, agent_pool):
 @pytest.fixture
 def sample_task(project):
     """Create a sample task."""
-    # Create spec first (required for foreign key)
-    from claudecraft.core.database import Spec, SpecStatus
-
+    # Create spec first
     spec = Spec(
         id="spec-1",
         title="Test Spec",
@@ -549,27 +557,30 @@ class TestExecuteTask:
         assert "failure_stage" in task.metadata
 
     def test_execute_task_registers_agent(self, pipeline, sample_task, tmp_path):
-        """Test that agents are registered during execution."""
+        """Test that agent slots are claimed and released during execution."""
         worktree_path = tmp_path / "worktree"
         worktree_path.mkdir()
 
-        # Track register/deregister calls
-        register_calls = []
-        deregister_calls = []
+        # Track claim/release calls
+        claim_calls = []
+        release_calls = []
 
-        original_register = pipeline.project.db.register_agent
-        original_deregister = pipeline.project.db.deregister_agent
+        original_claim = pipeline.project.db.claim_agent_slot
+        original_release = pipeline.project.db.release_agent_slot
 
-        def mock_register(*args, **kwargs):
-            register_calls.append(kwargs)
-            return original_register(*args, **kwargs)
+        slot_counter = [0]
 
-        def mock_deregister(*args, **kwargs):
-            deregister_calls.append(kwargs)
-            return original_deregister(*args, **kwargs)
+        def mock_claim(*args, **kwargs):
+            claim_calls.append(kwargs)
+            slot_counter[0] += 1
+            return original_claim(*args, **kwargs)
 
-        pipeline.project.db.register_agent = mock_register
-        pipeline.project.db.deregister_agent = mock_deregister
+        def mock_release(*args, **kwargs):
+            release_calls.append(args)
+            return original_release(*args, **kwargs)
+
+        pipeline.project.db.claim_agent_slot = mock_claim
+        pipeline.project.db.release_agent_slot = mock_release
 
         # Make all stages pass quickly
         def mock_run(*args, **kwargs):
@@ -582,9 +593,9 @@ class TestExecuteTask:
         with patch("subprocess.run", side_effect=mock_run):
             pipeline.execute_task(sample_task, worktree_path)
 
-        # Each stage should register and deregister
-        assert len(register_calls) == 4  # 4 stages
-        assert len(deregister_calls) == 4
+        # Each stage should claim and release a slot
+        assert len(claim_calls) == 4  # 4 stages
+        assert len(release_calls) == 4
 
     def test_execute_task_logs_execution(self, pipeline, sample_task, tmp_path):
         """Test that execution is logged."""
@@ -656,18 +667,10 @@ class TestCheckStageSuccess:
 # Phase 4 Tests: Ralph Loop Integration
 # =============================================================================
 
-from claudecraft.core.database import (
-    CompletionCriteria,
-    TaskCompletionSpec,
-    VerificationMethod,
-)
-from claudecraft.orchestration.ralph import RalphLoop, RalphLoopConfig
-
 
 @pytest.fixture
 def sample_task_with_spec(project):
     """Create a sample task with completion spec."""
-    from claudecraft.core.database import Spec, SpecStatus
 
     spec = Spec(
         id="spec-ralph",

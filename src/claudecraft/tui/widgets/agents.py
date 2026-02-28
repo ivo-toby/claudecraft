@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.containers import VerticalScroll
 from textual.widgets import Label, Static
 
-from claudecraft.core.database import ActiveAgent, ActiveRalphLoop
+from claudecraft.core.models import ActiveAgent, ActiveRalphLoop
 
 
 class AgentSlot(Static):
@@ -171,7 +171,7 @@ class AgentsPanel(VerticalScroll):
             agent_by_slot: dict[int, ActiveAgent] = {a.slot: a for a in agents}
 
             # Get active Ralph loops for quick lookup
-            ralph_loops = project.db.list_ralph_loops(status="running")
+            ralph_loops = project.db.list_active_ralph_loops(status="running")
             ralph_by_task: dict[str, ActiveRalphLoop] = {
                 loop.task_id: loop for loop in ralph_loops
             }
