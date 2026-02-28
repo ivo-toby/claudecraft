@@ -218,6 +218,7 @@ def test_read_during_atomic_write(store: FileStore) -> None:
         """Repeatedly read the state file for 0.5 s and verify valid JSON."""
         deadline = time.monotonic() + 0.5
         while time.monotonic() < deadline and not stop_flag.is_set():
+            content = ""
             try:
                 with open(state_path) as f:
                     content = f.read()
