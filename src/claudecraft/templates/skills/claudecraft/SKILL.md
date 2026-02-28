@@ -33,6 +33,16 @@ Complete workflow from idea to implementation:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
+│                    QUICK TASKS (Lightweight)                         │
+├─────────────────────────────────────────────────────────────────────┤
+│  /claudecraft.quick     Research + craft prompt [USER REVIEWS]       │
+│        ↓                                                            │
+│  /claudecraft.quick-run Execute on current branch                    │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                 FULL WORKFLOW (Spec-Driven)                          │
+├─────────────────────────────────────────────────────────────────────┤
 │                        HUMAN INTERACTION                            │
 ├─────────────────────────────────────────────────────────────────────┤
 │  /claudecraft.brd     Interactive BRD creation with research          │
@@ -63,7 +73,11 @@ Complete workflow from idea to implementation:
 ### Specification (Human Approval Required)
 - `/claudecraft.specify` - Generate specification from requirements
 
-### Autonomous Execution
+### Quick Tasks (Lightweight, No Full Spec)
+- `/claudecraft.quick` - Research codebase + craft implementation prompt
+- `/claudecraft.quick-run` - Execute implementation from crafted prompt
+
+### Autonomous Execution (Full Spec Workflow)
 - `/claudecraft.plan` - Create technical implementation plan
 - `/claudecraft.tasks` - Decompose plan into executable database tasks
 - `/claudecraft.implement` - Execute autonomous implementation
