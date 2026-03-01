@@ -183,6 +183,13 @@ class TestTaskCRUD:
         assert fetched.title == "Test Task"
         assert fetched.status == TaskStatus.TODO
 
+    def test_create_task_rejects_duplicate_id(self, temp_store: FileStore) -> None:
+        temp_store.create_spec(make_spec())
+        temp_store.create_task(make_task())
+
+        with pytest.raises(ValueError, match="already exists"):
+            temp_store.create_task(make_task())
+
     def test_get_task_scans_all_specs(self, temp_store: FileStore) -> None:
         temp_store.create_spec(make_spec("spec-1"))
         temp_store.create_task(make_task("t1", "spec-1"))
