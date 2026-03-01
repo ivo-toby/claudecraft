@@ -51,6 +51,8 @@ Phase 1: Foundation
 ## Active Technologies
 - Python 3.12+ with uv + Textual (TUI), GitPython (worktrees), PyYAML (config) (001-flat-file-store)
 - Flat JSON files (atomic write via temp+os.replace) (001-flat-file-store)
+- Python 3.12+ (managed with `uv`) + Textual (TUI), GitPython (worktrees), PyYAML (config), argparse (CLI) (002-agent-execution-parity)
+- Flat JSON files (atomic write via temp+os.replace), JSONL append-only logs (002-agent-execution-parity)
 
 ## Recent Changes
 - 001-flat-file-store: Added Python 3.12+ with uv + Textual (TUI), GitPython (worktrees), PyYAML (config)
