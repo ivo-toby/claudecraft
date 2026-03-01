@@ -2898,6 +2898,16 @@ def cmd_migrate(json_output: bool = False) -> int:
 
         # Migrate tasks
         valid_statuses = {s.value for s in TaskStatus}
+        legacy_status_map = {
+            "completed": "done",
+            "complete": "done",
+            "in_progress": "implementing",
+            "in-progress": "implementing",
+            "review": "reviewing",
+            "test": "testing",
+            "pending": "todo",
+            "blocked": "todo",
+        }
         cursor = conn.execute("SELECT * FROM tasks")
         for row in cursor:
             completion_spec = None
@@ -2905,7 +2915,11 @@ def cmd_migrate(json_output: bool = False) -> int:
                 completion_spec = TaskCompletionSpec.from_dict(
                     json.loads(row["completion_spec"])
                 )
-            status_val = row["status"] if row["status"] in valid_statuses else "todo"
+            raw_status = row["status"]
+            if raw_status in valid_statuses:
+                status_val = raw_status
+            else:
+                status_val = legacy_status_map.get(raw_status, "todo")
             task = Task(
                 id=row["id"],
                 spec_id=row["spec_id"],

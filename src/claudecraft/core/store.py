@@ -227,7 +227,8 @@ class FileStore:
         """Atomically write runtime state with optional optimistic concurrency.
 
         If expected_mtime_ns is provided, verifies that the file's mtime has
-        not changed before writing. Retries up to 3 times on conflict.
+        not changed before writing. Raises on conflict — callers (e.g.
+        _update_task_runtime) handle retry with fresh state.
 
         Args:
             spec_id: The spec identifier.
@@ -236,7 +237,7 @@ class FileStore:
                 still have for the write to proceed.
 
         Raises:
-            RuntimeError: If all 3 retry attempts fail due to concurrent modification.
+            RuntimeError: If mtime doesn't match (concurrent modification).
         """
         path = self.state_dir / f"{spec_id}.json"
         self._ensure_dir(self.state_dir)
@@ -245,24 +246,17 @@ class FileStore:
             self._atomic_write(path, state)
             return
 
-        for attempt in range(3):
-            # Check current mtime
-            try:
-                current_mtime = path.stat().st_mtime_ns
-            except FileNotFoundError:
-                current_mtime = 0
+        try:
+            current_mtime = path.stat().st_mtime_ns
+        except FileNotFoundError:
+            current_mtime = 0
 
-            if current_mtime != expected_mtime_ns:
-                if attempt == 2:
-                    raise RuntimeError(
-                        f"Runtime state for spec {spec_id} was modified concurrently "
-                        f"(attempt {attempt + 1}/3)"
-                    )
-                # Re-read and retry with fresh state
-                continue
+        if current_mtime != expected_mtime_ns:
+            raise RuntimeError(
+                f"Runtime state for spec {spec_id} was modified concurrently"
+            )
 
-            self._atomic_write(path, state)
-            return
+        self._atomic_write(path, state)
 
     def _get_task_runtime(self, spec_id: str, task_id: str) -> dict[str, Any]:
         """Get runtime dict for a single task, with defaults if missing.
@@ -422,6 +416,10 @@ class FileStore:
             definition["completion_spec"] = task.completion_spec.to_dict()
 
         def_path = self.specs_dir / task.spec_id / "tasks" / f"{task.id}.json"
+        if def_path.exists():
+            raise ValueError(
+                f"Task '{task.id}' already exists in spec '{task.spec_id}'"
+            )
         self._atomic_write(def_path, definition)
 
         # Initialize runtime state
@@ -486,13 +484,30 @@ class FileStore:
         if not tasks_dir.exists():
             return []
 
+        # Read runtime state once to avoid O(n) file reads
+        state = self._read_runtime_state(spec_id)
+        runtime_tasks = state.get("tasks", {})
+
         tasks: list[Task] = []
         for task_file in tasks_dir.glob("*.json"):
             definition = self._read_json(task_file)
             if definition is None:
                 continue
             task_id = task_file.stem
-            runtime = self._get_task_runtime(spec_id, task_id)
+            if task_id in runtime_tasks:
+                runtime = dict(runtime_tasks[task_id])
+            else:
+                fallback_ts = definition.get(
+                    "created_at", datetime.now().isoformat()
+                )
+                runtime = {
+                    "status": "todo",
+                    "priority": 0,
+                    "assignee": None,
+                    "worktree": None,
+                    "iteration": 0,
+                    "updated_at": fallback_ts,
+                }
             task = self._reconstitute_task(definition, runtime)
             if status is None or task.status == status:
                 tasks.append(task)
@@ -654,18 +669,21 @@ class FileStore:
     def append_execution_log(self, log: ExecutionLog) -> None:
         """Append one JSON line to .claudecraft/logs/{log.task_id}.jsonl.
 
-        Uses O_APPEND semantics (open mode "a"). Each entry is a single JSON
-        object terminated by newline. Entries are under 4 KB so append is atomic
-        on Linux.
+        Uses os.open with O_APPEND + os.write for a single-syscall atomic
+        append. Entries are kept under 4 KB to stay within POSIX atomicity
+        guarantees on local filesystems.
 
         Args:
             log: The ExecutionLog to append.
         """
         self._ensure_dir(self.logs_dir)
         path = self.logs_dir / f"{log.task_id}.jsonl"
-        line = json.dumps(log.to_dict()) + "\n"
-        with open(path, "a") as f:
-            f.write(line)
+        data = (json.dumps(log.to_dict()) + "\n").encode()
+        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+        try:
+            os.write(fd, data)
+        finally:
+            os.close(fd)
 
     def get_execution_logs(self, task_id: str) -> list[ExecutionLog]:
         """Read all log entries for a task from .claudecraft/logs/{task_id}.jsonl.
