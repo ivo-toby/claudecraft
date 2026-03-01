@@ -26,7 +26,7 @@ _SPEC_STATUS_CHOICES = [s.value for s in SpecStatus]
 _TASK_STATUS_CHOICES = [s.value for s in TaskStatus]
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     """Main entry point for ClaudeCraft CLI."""
     parser = argparse.ArgumentParser(
         prog="claudecraft",
@@ -468,7 +468,7 @@ def main() -> int:
         help="Model to use for generation (default: from config)",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.command == "init":
         return cmd_init(args.path, args.update, args.json)
