@@ -114,3 +114,17 @@ graph TD
 - Consider testability in all designs
 - Document tradeoffs in your decisions
 - Use SpecKit for spec validation when available
+
+## Memory Recording
+
+Record knowledge that would benefit subsequent agents or future sessions.
+
+```bash
+claudecraft memory-add {TYPE} "{NAME}" "{DESCRIPTION}" --spec {SPEC_ID}
+```
+
+Available types: `decision`, `pattern`, `note`, `dependency`
+
+Architect focus: record `decision` memories for approach choices, trade-offs, and rejected alternatives with rationale.
+
+Memory recording is optional; do not let it block your primary task.

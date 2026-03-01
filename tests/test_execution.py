@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from claudecraft.core.models import (
+    ActiveRalphLoop,
     CompletionCriteria,
     Spec,
     SpecStatus,
@@ -330,17 +331,16 @@ class TestBuildAgentPrompt:
         assert "QA PASSED" in prompt
         assert "QA FAILED" in prompt
 
-    def test_prompt_includes_followup_instructions(self, pipeline, sample_task):
-        """Test that prompt includes follow-up task instructions."""
+    def test_prompt_does_not_include_dynamic_followup_instructions(self, pipeline, sample_task):
+        """Test follow-up task instructions are no longer dynamically injected."""
         stage = PipelineStage("Implementation", AgentType.CODER, max_iterations=3)
         worktree_path = Path("/tmp/test-worktree")
 
         prompt = pipeline._build_agent_prompt(sample_task, stage, worktree_path, 1)
 
-        assert "claudecraft task-followup" in prompt
-        assert "PLACEHOLDER-" in prompt
-        assert "TECH-DEBT-" in prompt
-        assert "claudecraft list-tasks" in prompt
+        assert "## Creating Follow-up Tasks" not in prompt
+        assert "claudecraft task-followup" not in prompt
+        assert "claudecraft list-tasks" not in prompt
 
 
 class TestRunClaudeHeadless:
@@ -350,7 +350,9 @@ class TestRunClaudeHeadless:
         """Test successful Claude execution."""
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = json.dumps({"result": "IMPLEMENTATION COMPLETE", "session_id": "sess-123"})
+        mock_result.stdout = json.dumps(
+            {"result": "IMPLEMENTATION COMPLETE", "session_id": "sess-123"}
+        )
         mock_result.stderr = ""
 
         with patch("subprocess.run", return_value=mock_result) as mock_run:
@@ -764,9 +766,7 @@ class TestGetCompletionCriteria:
 
     def test_get_criteria_from_task_spec(self, pipeline, sample_task_with_spec):
         """Test getting criteria from task completion spec."""
-        criteria = pipeline._get_completion_criteria(
-            sample_task_with_spec, AgentType.CODER
-        )
+        criteria = pipeline._get_completion_criteria(sample_task_with_spec, AgentType.CODER)
 
         assert criteria is not None
         assert criteria.promise == "CODER_COMPLETE"
@@ -785,17 +785,13 @@ class TestGetCompletionCriteria:
         """Test returns None when Ralph is disabled."""
         pipeline.ralph_config = RalphLoopConfig(enabled=False)
 
-        criteria = pipeline._get_completion_criteria(
-            sample_task_with_spec, AgentType.CODER
-        )
+        criteria = pipeline._get_completion_criteria(sample_task_with_spec, AgentType.CODER)
 
         assert criteria is None
 
     def test_get_criteria_for_different_agents(self, pipeline, sample_task_with_spec):
         """Test getting criteria for different agent types."""
-        coder_criteria = pipeline._get_completion_criteria(
-            sample_task_with_spec, AgentType.CODER
-        )
+        coder_criteria = pipeline._get_completion_criteria(sample_task_with_spec, AgentType.CODER)
         reviewer_criteria = pipeline._get_completion_criteria(
             sample_task_with_spec, AgentType.REVIEWER
         )
@@ -837,9 +833,7 @@ class TestBuildDefaultCriteria:
 
     def test_default_criteria_includes_acceptance(self, pipeline, sample_task_with_spec):
         """Test default criteria includes acceptance criteria."""
-        criteria = pipeline._build_default_criteria(
-            sample_task_with_spec, AgentType.REVIEWER
-        )
+        criteria = pipeline._build_default_criteria(sample_task_with_spec, AgentType.REVIEWER)
 
         assert "check_for" in criteria.verification_config
         assert "Tests pass" in criteria.verification_config["check_for"]
@@ -858,9 +852,7 @@ class TestBuildRalphPrompt:
         ralph.start(sample_task_with_spec, "coder")
         ralph.increment()
 
-        prompt = pipeline._build_ralph_prompt(
-            sample_task_with_spec, stage, worktree_path, ralph
-        )
+        prompt = pipeline._build_ralph_prompt(sample_task_with_spec, stage, worktree_path, ralph)
 
         # Should include base prompt content
         assert "claudecraft-coder" in prompt
@@ -881,9 +873,7 @@ class TestBuildRalphPrompt:
         ralph.increment()
         ralph.increment()  # Now at iteration 2
 
-        prompt = pipeline._build_ralph_prompt(
-            sample_task_with_spec, stage, worktree_path, ralph
-        )
+        prompt = pipeline._build_ralph_prompt(sample_task_with_spec, stage, worktree_path, ralph)
 
         assert "2/" in prompt  # Should show "2/10" or similar
 
@@ -901,16 +891,12 @@ class TestExecuteStageWithRalph:
         def mock_run(*args, **kwargs):
             result = MagicMock()
             result.returncode = 0
-            result.stdout = json.dumps({
-                "result": "Done! <promise>CODER_COMPLETE</promise>"
-            })
+            result.stdout = json.dumps({"result": "Done! <promise>CODER_COMPLETE</promise>"})
             result.stderr = ""
             return result
 
         with patch("subprocess.run", side_effect=mock_run):
-            result = pipeline.execute_stage_with_ralph(
-                sample_task_with_spec, stage, worktree_path
-            )
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
 
         assert result.success is True
         assert result.ralph_verified is True
@@ -934,9 +920,7 @@ class TestExecuteStageWithRalph:
             return result
 
         with patch("subprocess.run", side_effect=mock_run):
-            result = pipeline.execute_stage_with_ralph(
-                sample_task_with_spec, stage, worktree_path
-            )
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
 
         assert result.success is False
         assert result.ralph_iterations == 2
@@ -957,21 +941,130 @@ class TestExecuteStageWithRalph:
             return result
 
         with patch("subprocess.run", side_effect=mock_run):
-            result = pipeline.execute_stage_with_ralph(
-                sample_task_with_spec, stage, worktree_path
-            )
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
 
         # Should succeed via regular execution
         assert result.success is True
         assert result.ralph_iterations == 0
 
+    def test_execute_with_ralph_persists_start_iteration_and_finish(
+        self, pipeline, sample_task_with_spec, tmp_path
+    ):
+        """Test Ralph loop persistence is called at lifecycle checkpoints."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = json.dumps({"result": "Done! <promise>CODER_COMPLETE</promise>"})
+            result.stderr = ""
+            return result
+
+        with (
+            patch.object(pipeline.project.db, "save_ralph_loop") as mock_save,
+            patch("subprocess.run", side_effect=mock_run),
+        ):
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
+
+        assert result.success is True
+        assert mock_save.call_count >= 3
+
+        statuses = [call.args[0].status for call in mock_save.call_args_list]
+        assert statuses[0] == "running"
+        assert "completed" in statuses
+
+    def test_execute_with_ralph_breaks_when_loop_cancelled(
+        self, pipeline, sample_task_with_spec, tmp_path
+    ):
+        """Test cancellation flag interrupts Ralph loop before agent execution."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        cancelled_loop = ActiveRalphLoop(
+            id=0,
+            task_id=sample_task_with_spec.id,
+            agent_type=stage.agent_type.value,
+            iteration=1,
+            max_iterations=10,
+            started_at=datetime.now(),
+            updated_at=datetime.now(),
+            verification_results=[],
+            status="cancelled",
+        )
+
+        with (
+            patch.object(pipeline.project.db, "get_ralph_loop", return_value=cancelled_loop),
+            patch("subprocess.run") as mock_run,
+        ):
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
+
+        assert result.success is False
+        assert result.output == "Ralph loop cancelled"
+        mock_run.assert_not_called()
+
+
+class TestRalphPersistenceHelpers:
+    """Tests for Ralph persistence helper behavior."""
+
+    def test_to_active_ralph_loop_maps_fields(self, pipeline, sample_task_with_spec):
+        """Test ActiveRalphLoop fields map from RalphLoopState."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        criteria = pipeline._get_completion_criteria(sample_task_with_spec, stage.agent_type)
+        assert criteria is not None
+
+        ralph = RalphLoop(pipeline.ralph_config, pipeline.project)
+        ralph.start(sample_task_with_spec, stage.agent_type.value, criteria)
+        ralph.increment()
+
+        assert ralph.state is not None
+        active_loop = pipeline._to_active_ralph_loop(ralph.state, "running")
+
+        assert active_loop.id == 0
+        assert active_loop.task_id == ralph.state.task_id
+        assert active_loop.agent_type == ralph.state.agent_type
+        assert active_loop.iteration == ralph.state.iteration
+        assert active_loop.max_iterations == ralph.state.max_iterations
+        assert active_loop.started_at == ralph.state.started_at
+        assert active_loop.verification_results == ralph.state.verification_results
+        assert active_loop.status == "running"
+
+    def test_ralph_state_persisted_for_status_queries(
+        self, pipeline, sample_task_with_spec, tmp_path
+    ):
+        """Test persisted loop state is available for ralph-status style reads."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = json.dumps({"result": "Done! <promise>CODER_COMPLETE</promise>"})
+            result.stderr = ""
+            return result
+
+        with patch("subprocess.run", side_effect=mock_run):
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
+
+        assert result.success is True
+
+        persisted = pipeline.project.db.get_ralph_loop(
+            sample_task_with_spec.id, stage.agent_type.value
+        )
+        assert persisted is not None
+        assert persisted.status == "completed"
+
+        completed_loops = pipeline.project.db.list_active_ralph_loops(status="completed")
+        assert any(loop.task_id == sample_task_with_spec.id for loop in completed_loops)
+
 
 class TestExecuteTaskWithRalph:
     """Tests for execute_task with Ralph integration."""
 
-    def test_execute_task_uses_ralph_when_enabled(
-        self, pipeline, sample_task_with_spec, tmp_path
-    ):
+    def test_execute_task_uses_ralph_when_enabled(self, pipeline, sample_task_with_spec, tmp_path):
         """Test that execute_task uses Ralph for tasks with completion specs."""
         worktree_path = tmp_path / "worktree"
         worktree_path.mkdir()
@@ -1026,15 +1119,40 @@ class TestExecuteTaskWithRalph:
 
         with patch("subprocess.run", side_effect=mock_run):
             # Disable Ralph via parameter
-            success = pipeline.execute_task(
-                sample_task_with_spec, worktree_path, use_ralph=False
-            )
+            success = pipeline.execute_task(sample_task_with_spec, worktree_path, use_ralph=False)
 
         assert success is True
 
-    def test_execute_task_records_ralph_failure(
-        self, pipeline, sample_task_with_spec, tmp_path
+    def test_execute_task_warns_when_ralph_enabled_without_completion_spec(
+        self, pipeline, sample_task, tmp_path
     ):
+        """Test warning is logged when Ralph is enabled but task lacks completion spec."""
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        pipeline.ralph_config = RalphLoopConfig(enabled=True)
+
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = json.dumps({"result": "PASS"})
+            result.stderr = ""
+            return result
+
+        with (
+            patch("claudecraft.orchestration.execution.logger.warning") as mock_warning,
+            patch("subprocess.run", side_effect=mock_run),
+        ):
+            success = pipeline.execute_task(sample_task, worktree_path)
+
+        assert success is True
+        assert mock_warning.call_count == 4
+        mock_warning.assert_any_call(
+            "Ralph loops enabled but task %s has no completion criteria; running single-pass",
+            sample_task.id,
+        )
+
+    def test_execute_task_records_ralph_failure(self, pipeline, sample_task_with_spec, tmp_path):
         """Test that Ralph failure is recorded in task metadata."""
         worktree_path = tmp_path / "worktree"
         worktree_path.mkdir()
