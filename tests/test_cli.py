@@ -1916,7 +1916,7 @@ class TestMainWithRalphCommands:
 
     def test_main_ralph_status(self, cli_project):
         """Test main with ralph-status command."""
-        with patch("sys.argv", ["claudecraft", "ralph-status", "--json"]):
+        with patch("sys.argv", ["claudecraft", "--json", "ralph-status"]):
             with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                 result = main()
                 output = json.loads(mock_stdout.getvalue())
@@ -1929,7 +1929,7 @@ class TestMainWithRalphCommands:
         # Save a loop first
         cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
 
-        with patch("sys.argv", ["claudecraft", "ralph-cancel", "TASK-001", "--json"]):
+        with patch("sys.argv", ["claudecraft", "--json", "ralph-cancel", "TASK-001"]):
             with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                 result = main()
                 output = json.loads(mock_stdout.getvalue())

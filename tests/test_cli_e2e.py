@@ -18,6 +18,7 @@ Actual JSON output shapes (all commands wrap data):
   task-update  → {"success": True, "task_id": ..., "status": ..., "task": {...}}
   agent-start  → {"success": True, "slot": N, "task_id": ..., "agent_type": ...}
   list-agents  → {"success": True, "count": N, "agents": [...]}
+  ralph-status → {"success": True, "count": N, "loops": [...]}
   migrate      → {"success": False, "error": "..."} exit 0 (no SQLite found = no-op)
   sync-*       → {"success": False, "error": "..."} exit 1 (deprecated)
 """
@@ -338,15 +339,9 @@ class TestTaskCreate:
         assert isinstance(data, dict)
         assert "TASK-001" in data["task"]["dependencies"]
 
-    def test_task_create_nonexistent_spec_creates_files(self) -> None:
-        """Flat-file store creates parent directories on demand, so task-create
-        succeeds even when the spec does not have a meta.json.  This documents
-        the current behaviour — there is no spec-existence validation."""
+    def test_task_create_missing_spec_fails(self) -> None:
         code, _ = run_cli("task-create", "TASK-001", "no-such-spec", "Orphan task")
-        assert code == 0
-        # Task file was created under the non-existent spec's directory
-        task_file = self.proj / "specs" / "no-such-spec" / "tasks" / "TASK-001.json"
-        assert task_file.exists()
+        assert code != 0
 
 
 # ---------------------------------------------------------------------------
@@ -494,10 +489,11 @@ class TestAgentSlots:
 @pytest.mark.usefixtures("proj")
 class TestRalph:
     def test_ralph_status_no_loops(self) -> None:
-        """ralph-status with no active loops exits 0."""
-        # Use ralph's own --json flag (subparser-local, not the global one)
-        code, _ = run_cli("ralph-status", "--json", json_output=False)
+        """ralph-status with no active loops exits 0 and returns empty list."""
+        code, data = run_cli("ralph-status")
         assert code == 0
+        assert isinstance(data, dict)
+        assert data["loops"] == []
 
     def test_ralph_cancel_no_task(self) -> None:
         """ralph-cancel on a nonexistent task exits non-zero."""

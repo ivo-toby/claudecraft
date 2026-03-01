@@ -160,10 +160,6 @@ def main(argv: list[str] | None = None) -> int:
         choices=["running", "completed", "cancelled", "failed"],
         help="Filter by loop status",
     )
-    ralph_status_parser.add_argument(
-        "--json", action="store_true", dest="json_output", help="Output as JSON"
-    )
-
     # ralph-cancel command
     ralph_cancel_parser = subparsers.add_parser(
         "ralph-cancel", help="Cancel an active Ralph verification loop"
@@ -173,9 +169,6 @@ def main(argv: list[str] | None = None) -> int:
         "--agent-type",
         choices=["coder", "reviewer", "tester", "qa"],
         help="Cancel only specific agent type (default: all)",
-    )
-    ralph_cancel_parser.add_argument(
-        "--json", action="store_true", dest="json_output", help="Output as JSON"
     )
 
     # spec-create command
@@ -494,13 +487,13 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_ralph_status(
             task_id=getattr(args, "task_id", None),
             status=getattr(args, "status", None),
-            json_output=args.json_output,
+            json_output=args.json,
         )
     elif args.command == "ralph-cancel":
         return cmd_ralph_cancel(
             task_id=args.task_id,
             agent_type=getattr(args, "agent_type", None),
-            json_output=args.json_output,
+            json_output=args.json,
         )
     elif args.command == "spec-create":
         return cmd_spec_create(
@@ -1901,6 +1894,15 @@ def cmd_task_create(
     """Create a new task with optional completion criteria."""
     try:
         project = Project.load()
+
+        # Validate spec exists
+        if not project.db.get_spec(spec_id):
+            if json_output:
+                result = {"success": False, "error": f"Spec not found: {spec_id}"}
+                print(json.dumps(result, indent=2))
+            else:
+                print(f"Error: Spec not found: {spec_id}", file=sys.stderr)
+            return 1
 
         # Parse dependencies
         deps_list = [d.strip() for d in dependencies.split(",") if d.strip()]
