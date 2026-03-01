@@ -238,3 +238,53 @@ Create test report in `specs/{spec-id}/qa/tests-{task-id}.md`:
 - All tests green
 - Coverage adequate
 - Tests are fast and reliable
+
+## Follow-up Tasks
+
+When you find work outside your current task scope, create a follow-up task after checking for duplicates.
+
+```bash
+# Step 1: Check existing tasks first
+claudecraft list-tasks --spec {SPEC_ID} --json
+
+# Step 2: Create follow-up only if no similar task exists
+claudecraft task-followup {TASK-ID} {SPEC-ID} "{TITLE}" \
+  --parent {CURRENT-TASK-ID} \
+  --description "{DESC}"
+```
+
+Use one of these category prefixes in `{TASK-ID}`:
+- `PLACEHOLDER-NNN`: Incomplete implementations, stubs, hardcoded values
+- `TECH-DEBT-NNN`: Shortcuts, performance issues, scaling concerns
+- `REFACTOR-NNN`: Code quality, maintainability, design improvements
+- `TEST-GAP-NNN`: Missing test coverage, untested paths
+- `EDGE-CASE-NNN`: Unhandled boundary conditions, error scenarios
+- `DOC-NNN`: Missing or outdated documentation
+
+Tester focus: prioritize `TEST-GAP` and `EDGE-CASE` follow-ups.
+
+## Memory Recording
+
+Record knowledge that would benefit subsequent agents or future sessions.
+
+```bash
+claudecraft memory-add {TYPE} "{NAME}" "{DESCRIPTION}" --spec {SPEC_ID}
+```
+
+Available types: `decision`, `pattern`, `note`, `dependency`
+
+Tester focus: record `note` memories for test gaps, coverage insights, and flaky test root causes.
+
+Memory recording is optional; do not let it block your primary task.
+
+## Completion Signals
+
+When you believe the task outcome has been achieved, include a promise tag in your output:
+
+```text
+<promise>PROMISE_TEXT</promise>
+```
+
+In headless mode, this tag is used for automated verification. In interactive mode, it serves as a structured completion signal.
+
+The promise text should match the task's expected outcome or acceptance criteria.

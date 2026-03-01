@@ -25,12 +25,12 @@
 
 ### Implementation for US1
 
-- [ ] T001 [P] [US1] Add `## Follow-up Tasks` and `## Completion Signals` sections to src/claudecraft/templates/agents/claudecraft-coder.md per specs/002-agent-execution-parity/contracts/agent-template-sections.md — coder uses PLACEHOLDER, TECH-DEBT categories
-- [ ] T002 [P] [US1] Add `## Follow-up Tasks` and `## Completion Signals` sections to src/claudecraft/templates/agents/claudecraft-reviewer.md per specs/002-agent-execution-parity/contracts/agent-template-sections.md — reviewer uses REFACTOR, TECH-DEBT categories
-- [ ] T003 [P] [US1] Add `## Follow-up Tasks` and `## Completion Signals` sections to src/claudecraft/templates/agents/claudecraft-tester.md per specs/002-agent-execution-parity/contracts/agent-template-sections.md — tester uses TEST-GAP, EDGE-CASE categories
-- [ ] T004 [P] [US1] Add `## Follow-up Tasks` and `## Completion Signals` sections to src/claudecraft/templates/agents/claudecraft-qa.md per specs/002-agent-execution-parity/contracts/agent-template-sections.md — qa uses EDGE-CASE, DOC categories
-- [ ] T005 [US1] Remove dynamic follow-up task section from `_build_agent_prompt()` in src/claudecraft/orchestration/execution.py (lines 357-385) — templates are now single source of truth, this section would duplicate template content in headless mode
-- [ ] T006 [US1] Create tests/test_templates.py with validation tests: verify all four task-execution templates (coder, reviewer, tester, qa) contain `## Follow-up Tasks` section with `task-followup` command syntax, all six category prefixes, duplicate-checking instruction, and `## Completion Signals` section with `<promise>` tag format
+- [X] T001 [P] [US1] Add `## Follow-up Tasks` and `## Completion Signals` sections to src/claudecraft/templates/agents/claudecraft-coder.md per specs/002-agent-execution-parity/contracts/agent-template-sections.md — coder uses PLACEHOLDER, TECH-DEBT categories
+- [X] T002 [P] [US1] Add `## Follow-up Tasks` and `## Completion Signals` sections to src/claudecraft/templates/agents/claudecraft-reviewer.md per specs/002-agent-execution-parity/contracts/agent-template-sections.md — reviewer uses REFACTOR, TECH-DEBT categories
+- [X] T003 [P] [US1] Add `## Follow-up Tasks` and `## Completion Signals` sections to src/claudecraft/templates/agents/claudecraft-tester.md per specs/002-agent-execution-parity/contracts/agent-template-sections.md — tester uses TEST-GAP, EDGE-CASE categories
+- [X] T004 [P] [US1] Add `## Follow-up Tasks` and `## Completion Signals` sections to src/claudecraft/templates/agents/claudecraft-qa.md per specs/002-agent-execution-parity/contracts/agent-template-sections.md — qa uses EDGE-CASE, DOC categories
+- [X] T005 [US1] Remove dynamic follow-up task section from `_build_agent_prompt()` in src/claudecraft/orchestration/execution.py (lines 357-385) — templates are now single source of truth, this section would duplicate template content in headless mode
+- [X] T006 [US1] Create tests/test_templates.py with validation tests: verify all four task-execution templates (coder, reviewer, tester, qa) contain `## Follow-up Tasks` section with `task-followup` command syntax, all six category prefixes, duplicate-checking instruction, and `## Completion Signals` section with `<promise>` tag format
 
 **Checkpoint**: All four task-execution agent templates have follow-up task and completion signal instructions. Dynamic follow-up section removed from execution.py. Template validation tests pass.
 
@@ -48,12 +48,12 @@
 
 ### Implementation for US2
 
-- [ ] T007 [P] [US2] Add `## Memory Recording` section to src/claudecraft/templates/agents/claudecraft-architect.md per contracts/agent-template-sections.md — architect records `decision` type (approach choices with rationale)
-- [ ] T008 [P] [US2] Add `## Memory Recording` section to src/claudecraft/templates/agents/claudecraft-coder.md per contracts/agent-template-sections.md — coder records `pattern` type (discovered conventions)
-- [ ] T009 [P] [US2] Add `## Memory Recording` section to src/claudecraft/templates/agents/claudecraft-reviewer.md per contracts/agent-template-sections.md — reviewer records `note` type (quality observations, tech debt)
-- [ ] T010 [P] [US2] Add `## Memory Recording` section to src/claudecraft/templates/agents/claudecraft-tester.md per contracts/agent-template-sections.md — tester records `note` type (test gaps, coverage insights)
-- [ ] T011 [P] [US2] Add `## Memory Recording` section to src/claudecraft/templates/agents/claudecraft-qa.md per contracts/agent-template-sections.md — qa records `note` type (integration patterns, dependencies)
-- [ ] T012 [US2] Extend tests/test_templates.py with validation tests: verify all five agent templates (coder, reviewer, tester, qa, architect) contain `## Memory Recording` section with `memory-add` command syntax, correct primary type per role, and best-effort qualifier
+- [X] T007 [P] [US2] Add `## Memory Recording` section to src/claudecraft/templates/agents/claudecraft-architect.md per contracts/agent-template-sections.md — architect records `decision` type (approach choices with rationale)
+- [X] T008 [P] [US2] Add `## Memory Recording` section to src/claudecraft/templates/agents/claudecraft-coder.md per contracts/agent-template-sections.md — coder records `pattern` type (discovered conventions)
+- [X] T009 [P] [US2] Add `## Memory Recording` section to src/claudecraft/templates/agents/claudecraft-reviewer.md per contracts/agent-template-sections.md — reviewer records `note` type (quality observations, tech debt)
+- [X] T010 [P] [US2] Add `## Memory Recording` section to src/claudecraft/templates/agents/claudecraft-tester.md per contracts/agent-template-sections.md — tester records `note` type (test gaps, coverage insights)
+- [X] T011 [P] [US2] Add `## Memory Recording` section to src/claudecraft/templates/agents/claudecraft-qa.md per contracts/agent-template-sections.md — qa records `note` type (integration patterns, dependencies)
+- [X] T012 [US2] Extend tests/test_templates.py with validation tests: verify all five agent templates (coder, reviewer, tester, qa, architect) contain `## Memory Recording` section with `memory-add` command syntax, correct primary type per role, and best-effort qualifier
 
 **Checkpoint**: All five agent templates have role-specific memory recording instructions. Memory validation tests pass. Agents can now actively record knowledge during implementation.
 
@@ -71,10 +71,10 @@
 
 ### Implementation for US3
 
-- [ ] T013 [US3] Add `_to_active_ralph_loop(state: RalphLoopState, status: str) -> ActiveRalphLoop` helper method in src/claudecraft/orchestration/execution.py — bridges RalphLoopState (ralph.py) to ActiveRalphLoop (models.py) for store persistence, using id=0 and datetime.now() for updated_at
-- [ ] T014 [US3] Wire `save_ralph_loop()` calls in `execute_stage_with_ralph()` in src/claudecraft/orchestration/execution.py at three lifecycle points: (1) after `ralph.start()` with status="running", (2) after `ralph.increment()` with status="running" and updated verification_results, (3) after `ralph.finish()` with status="completed" or "failed" based on result
-- [ ] T015 [US3] Add cancellation flag check in Ralph while-loop in `execute_stage_with_ralph()` in src/claudecraft/orchestration/execution.py — after `ralph.increment()`, call `self.project.db.get_ralph_loop(task.id, stage.agent_type.value)` and if `status == "cancelled"`, break loop with cancellation ExecutionResult
-- [ ] T016 [US3] Add Ralph persistence tests in tests/test_execution.py: (1) verify save_ralph_loop is called on start/iteration/finish via mock, (2) verify cancellation flag causes loop to break, (3) verify ralph-status returns correct state after persistence, (4) verify ActiveRalphLoop fields match RalphLoopState fields
+- [X] T013 [US3] Add `_to_active_ralph_loop(state: RalphLoopState, status: str) -> ActiveRalphLoop` helper method in src/claudecraft/orchestration/execution.py — bridges RalphLoopState (ralph.py) to ActiveRalphLoop (models.py) for store persistence, using id=0 and datetime.now() for updated_at
+- [X] T014 [US3] Wire `save_ralph_loop()` calls in `execute_stage_with_ralph()` in src/claudecraft/orchestration/execution.py at three lifecycle points: (1) after `ralph.start()` with status="running", (2) after `ralph.increment()` with status="running" and updated verification_results, (3) after `ralph.finish()` with status="completed" or "failed" based on result
+- [X] T015 [US3] Add cancellation flag check in Ralph while-loop in `execute_stage_with_ralph()` in src/claudecraft/orchestration/execution.py — after `ralph.increment()`, call `self.project.db.get_ralph_loop(task.id, stage.agent_type.value)` and if `status == "cancelled"`, break loop with cancellation ExecutionResult
+- [X] T016 [US3] Add Ralph persistence tests in tests/test_execution.py: (1) verify save_ralph_loop is called on start/iteration/finish via mock, (2) verify cancellation flag causes loop to break, (3) verify ralph-status returns correct state after persistence, (4) verify ActiveRalphLoop fields match RalphLoopState fields
 
 **Checkpoint**: Ralph loop state persists to `.claudecraft/ralph/*.json` at each lifecycle point. `ralph-status` shows active loops. `ralph-cancel` terminates loops at next iteration boundary. All Ralph tests pass.
 
@@ -92,8 +92,8 @@
 
 ### Implementation for US4
 
-- [ ] T017 [US4] Add `logger.warning()` in `execute_task()` in src/claudecraft/orchestration/execution.py at the decision point where the pipeline chooses between `execute_stage_with_ralph()` and `execute_stage()` — when `self.ralph_config.enabled` is True but `task.completion_spec` is None, log: "Ralph loops enabled but task %s has no completion criteria; running single-pass"
-- [ ] T018 [US4] Add warning log capture test in tests/test_execution.py: (1) configure Ralph as enabled, (2) create task without completion_spec, (3) verify logger.warning is called with expected message containing task ID, (4) verify task still executes successfully via single-pass fallback
+- [X] T017 [US4] Add `logger.warning()` in `execute_task()` in src/claudecraft/orchestration/execution.py at the decision point where the pipeline chooses between `execute_stage_with_ralph()` and `execute_stage()` — when `self.ralph_config.enabled` is True but `task.completion_spec` is None, log: "Ralph loops enabled but task %s has no completion criteria; running single-pass"
+- [X] T018 [US4] Add warning log capture test in tests/test_execution.py: (1) configure Ralph as enabled, (2) create task without completion_spec, (3) verify logger.warning is called with expected message containing task ID, (4) verify task still executes successfully via single-pass fallback
 
 **Checkpoint**: Tasks without completion criteria produce a visible warning. Execution still succeeds (warning, not error). Warning tests pass.
 
@@ -103,7 +103,7 @@
 
 **Purpose**: Validate all changes work together, propagate templates, verify quality gates
 
-- [ ] T019 Propagate updated agent templates by running `claudecraft init --update` and verify .claude/agents/ files match src/claudecraft/templates/agents/
+- [X] T019 Propagate updated agent templates by running `claudecraft init --update` and verify .claude/agents/ files match src/claudecraft/templates/agents/
 - [ ] T020 Run full verification: `uv run pytest` (all tests pass), `uv run ruff check src/claudecraft` (no lint errors), `uv run mypy src/claudecraft` (no type errors)
 
 ---
