@@ -1064,10 +1064,15 @@ def cmd_execute(
                 "failed": sum(1 for r in results if not r["success"]),
                 "parallel_slots": max_parallel,
             }
+            if project.config.docs_generate_on_complete:
+                result["docs_generation"] = pipeline.docs_trigger_status or "skipped_incomplete"
             print(json.dumps(result, indent=2))
         else:
             successful = sum(1 for r in results if r["success"])
             print(f"\nCompleted: {successful}/{len(results)} tasks successful")
+            if project.config.docs_generate_on_complete:
+                status = pipeline.docs_trigger_status or "skipped_incomplete"
+                print(f"Documentation generation: {status}")
 
         return 0 if all(r["success"] for r in results) else 1
 

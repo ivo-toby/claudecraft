@@ -707,6 +707,53 @@ class TestListingFiltering:
 
 
 # ---------------------------------------------------------------------------
+# Spec Completion Detection
+# ---------------------------------------------------------------------------
+
+
+class TestSpecCompletion:
+    def test_all_tasks_done_returns_true(self, temp_store: FileStore) -> None:
+        """Spec is complete when every task has DONE status."""
+        temp_store.create_spec(make_spec("spec-1"))
+        temp_store.create_task(make_task("t1", "spec-1", status=TaskStatus.DONE))
+        temp_store.create_task(make_task("t2", "spec-1", status=TaskStatus.DONE))
+        temp_store.create_task(make_task("t3", "spec-1", status=TaskStatus.DONE))
+
+        assert temp_store.is_spec_complete("spec-1") is True
+
+    def test_some_tasks_pending_returns_false(self, temp_store: FileStore) -> None:
+        """Spec is NOT complete when some tasks are still TODO or in progress."""
+        temp_store.create_spec(make_spec("spec-1"))
+        temp_store.create_task(make_task("t1", "spec-1", status=TaskStatus.DONE))
+        temp_store.create_task(make_task("t2", "spec-1", status=TaskStatus.TODO))
+        temp_store.create_task(
+            make_task("t3", "spec-1", status=TaskStatus.IMPLEMENTING)
+        )
+
+        assert temp_store.is_spec_complete("spec-1") is False
+
+    def test_no_tasks_returns_false(self, temp_store: FileStore) -> None:
+        """Spec with no tasks is NOT complete (nothing to complete)."""
+        temp_store.create_spec(make_spec("spec-1"))
+
+        assert temp_store.is_spec_complete("spec-1") is False
+
+    def test_single_task_done_returns_true(self, temp_store: FileStore) -> None:
+        """Single-task spec is complete when that task is DONE."""
+        temp_store.create_spec(make_spec("spec-1"))
+        temp_store.create_task(make_task("t1", "spec-1", status=TaskStatus.DONE))
+
+        assert temp_store.is_spec_complete("spec-1") is True
+
+    def test_single_task_todo_returns_false(self, temp_store: FileStore) -> None:
+        """Single-task spec is NOT complete when that task is TODO."""
+        temp_store.create_spec(make_spec("spec-1"))
+        temp_store.create_task(make_task("t1", "spec-1", status=TaskStatus.TODO))
+
+        assert temp_store.is_spec_complete("spec-1") is False
+
+
+# ---------------------------------------------------------------------------
 # T028: Clone initialization test
 # ---------------------------------------------------------------------------
 

@@ -1206,3 +1206,167 @@ class TestExecutionResultWithRalph:
 
         assert result.ralph_iterations == 3
         assert result.ralph_verified is True
+
+
+class TestDocsAutoTrigger:
+    """Tests for automatic documentation generation trigger (003-auto-docs-on-completion)."""
+
+    def test_trigger_fires_when_enabled_and_spec_complete(self, pipeline, sample_task):
+        """Docs generation is triggered when config enabled and all tasks DONE."""
+        pipeline.project.config.docs_generate_on_complete = True
+        pipeline.project.config.docs_output_dir = "docs"
+
+        # Mark task as DONE so is_spec_complete returns True
+        sample_task.status = TaskStatus.DONE
+        pipeline.project.db.update_task(sample_task)
+
+        with patch("claudecraft.orchestration.execution.subprocess.Popen") as mock_popen:
+            result = pipeline._check_and_trigger_docs(sample_task)
+
+        assert result == "triggered"
+        mock_popen.assert_called_once()
+        call_args = mock_popen.call_args[0][0]
+        assert call_args[0] == "claudecraft"
+        assert call_args[1] == "generate-docs"
+        assert "--spec" in call_args
+        assert sample_task.spec_id in call_args
+
+    def test_trigger_does_not_fire_when_disabled(self, pipeline, sample_task):
+        """Docs generation is skipped when config is disabled."""
+        pipeline.project.config.docs_generate_on_complete = False
+
+        with patch("claudecraft.orchestration.execution.subprocess.Popen") as mock_popen:
+            result = pipeline._check_and_trigger_docs(sample_task)
+
+        assert result is None
+        mock_popen.assert_not_called()
+
+    def test_trigger_does_not_fire_when_spec_not_complete(
+        self, pipeline, project, sample_task
+    ):
+        """Docs generation is skipped when spec still has non-DONE tasks."""
+        pipeline.project.config.docs_generate_on_complete = True
+
+        # Add another task that is NOT done
+        task2 = Task(
+            id="task-2",
+            spec_id="spec-1",
+            title="Second task",
+            description="Still pending",
+            status=TaskStatus.TODO,
+            priority=1,
+            dependencies=[],
+            assignee=None,
+            worktree=None,
+            metadata={},
+            iteration=0,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        project.db.create_task(task2)
+
+        with patch("claudecraft.orchestration.execution.subprocess.Popen") as mock_popen:
+            result = pipeline._check_and_trigger_docs(sample_task)
+
+        assert result == "skipped_incomplete"
+        mock_popen.assert_not_called()
+
+    def test_subprocess_failure_does_not_affect_task_status(
+        self, pipeline, sample_task
+    ):
+        """Popen failure returns skipped_error but task stays DONE."""
+        pipeline.project.config.docs_generate_on_complete = True
+        pipeline.project.config.docs_output_dir = "docs"
+
+        # Mark task DONE
+        sample_task.status = TaskStatus.DONE
+        pipeline.project.db.update_task(sample_task)
+
+        with patch(
+            "claudecraft.orchestration.execution.subprocess.Popen",
+            side_effect=OSError("command not found"),
+        ):
+            result = pipeline._check_and_trigger_docs(sample_task)
+
+        assert result == "skipped_error"
+        # Task should still be DONE
+        refreshed = pipeline.project.db.get_task(sample_task.id)
+        assert refreshed.status == TaskStatus.DONE
+
+    def test_docs_trigger_status_set_on_pipeline(self, pipeline, sample_task):
+        """Pipeline.docs_trigger_status is set correctly after _check_and_trigger_docs."""
+        pipeline.project.config.docs_generate_on_complete = True
+        pipeline.project.config.docs_output_dir = "docs"
+
+        sample_task.status = TaskStatus.DONE
+        pipeline.project.db.update_task(sample_task)
+
+        with patch("claudecraft.orchestration.execution.subprocess.Popen"):
+            pipeline.docs_trigger_status = pipeline._check_and_trigger_docs(
+                sample_task
+            )
+
+        assert pipeline.docs_trigger_status == "triggered"
+
+    def test_docs_trigger_status_none_when_disabled(self, pipeline, sample_task):
+        """Pipeline.docs_trigger_status is None when docs generation is disabled."""
+        pipeline.project.config.docs_generate_on_complete = False
+
+        pipeline.docs_trigger_status = pipeline._check_and_trigger_docs(sample_task)
+
+        assert pipeline.docs_trigger_status is None
+
+
+class TestDocsSummaryContract:
+    """Tests for docs_generation field in execution summary (FR-007 contract)."""
+
+    def _build_summary(self, config_enabled: bool, trigger_status: str | None) -> dict:
+        """Build a summary dict following the same logic as cmd_execute in cli.py."""
+        result: dict[str, object] = {
+            "success": True,
+            "executed": [],
+            "total": 1,
+            "successful": 1,
+            "failed": 0,
+            "parallel_slots": 6,
+        }
+        if config_enabled:
+            result["docs_generation"] = trigger_status or "skipped_incomplete"
+        return result
+
+    def test_summary_includes_triggered_when_enabled(self):
+        """JSON summary has docs_generation: triggered when config enabled and trigger fired."""
+        summary = self._build_summary(config_enabled=True, trigger_status="triggered")
+
+        assert "docs_generation" in summary
+        assert summary["docs_generation"] == "triggered"
+
+    def test_summary_includes_skipped_incomplete(self):
+        """JSON summary has docs_generation: skipped_incomplete when spec not done."""
+        summary = self._build_summary(
+            config_enabled=True, trigger_status="skipped_incomplete"
+        )
+
+        assert "docs_generation" in summary
+        assert summary["docs_generation"] == "skipped_incomplete"
+
+    def test_summary_includes_skipped_error(self):
+        """JSON summary has docs_generation: skipped_error on Popen failure."""
+        summary = self._build_summary(
+            config_enabled=True, trigger_status="skipped_error"
+        )
+
+        assert "docs_generation" in summary
+        assert summary["docs_generation"] == "skipped_error"
+
+    def test_summary_omits_field_when_disabled(self):
+        """JSON summary has NO docs_generation field when config is disabled."""
+        summary = self._build_summary(config_enabled=False, trigger_status=None)
+
+        assert "docs_generation" not in summary
+
+    def test_summary_defaults_to_skipped_incomplete_when_none(self):
+        """When trigger_status is None but config is enabled, default to skipped_incomplete."""
+        summary = self._build_summary(config_enabled=True, trigger_status=None)
+
+        assert summary["docs_generation"] == "skipped_incomplete"

@@ -662,6 +662,25 @@ class FileStore:
         }
         return not all(dep in done_ids for dep in task.dependencies)
 
+    def is_spec_complete(self, spec_id: str) -> bool:
+        """Check whether all tasks for a spec have reached DONE status.
+
+        Returns False if the spec has no tasks (nothing to complete).
+        Currently checks that every task is DONE. When SKIPPED/CANCELLED
+        statuses are added to TaskStatus, this method should exclude them
+        from the "must be DONE" requirement.
+
+        Args:
+            spec_id: The spec identifier.
+
+        Returns:
+            True if at least one task exists and all tasks are DONE.
+        """
+        tasks = self.list_tasks(spec_id)
+        if not tasks:
+            return False
+        return all(t.status == TaskStatus.DONE for t in tasks)
+
     # -------------------------------------------------------------------------
     # Execution Logs (T010)
     # -------------------------------------------------------------------------
