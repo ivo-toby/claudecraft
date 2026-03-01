@@ -3,7 +3,7 @@
 import pytest
 
 from claudecraft.orchestration.agent_pool import AgentPool, AgentSlot, AgentType
-from claudecraft.core.database import Task, TaskStatus
+from claudecraft.core.models import Task, TaskStatus
 from datetime import datetime
 
 

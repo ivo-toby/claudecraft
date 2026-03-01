@@ -4,7 +4,7 @@ from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Vertical
 from textual.widgets import Footer, Header, Static
 
 from claudecraft.core.project import Project

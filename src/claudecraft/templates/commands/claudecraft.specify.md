@@ -28,7 +28,7 @@ $ARGUMENTS - Spec ID to generate specification for
    - List requirements coverage
    - Flag any concerns
 
-5. Register spec in database:
+5. Register spec in flat-file store:
    ```bash
    # Check if spec exists
    claudecraft spec-get {spec-id} --json

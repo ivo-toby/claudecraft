@@ -10,12 +10,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from claudecraft.core.database import CompletionCriteria, Task, TaskStatus, VerificationMethod
+from claudecraft.core.models import (
+    ActiveRalphLoop,
+    CompletionCriteria,
+    ExecutionLog,
+    Task,
+    TaskStatus,
+    VerificationMethod,
+)
 from claudecraft.core.project import Project
 from claudecraft.orchestration.agent_pool import AgentPool, AgentType
 from claudecraft.orchestration.ralph import (
     RalphLoop,
     RalphLoopConfig,
+    RalphLoopState,
     VerificationResult,
 )
 
@@ -102,6 +110,7 @@ class ExecutionPipeline:
         self.claude_path = claude_path
         self.timeout = timeout
         self.ralph_config = ralph_config or self._get_ralph_config()
+        self.docs_trigger_status: str | None = None
 
     def execute_task(
         self,
@@ -126,12 +135,17 @@ class ExecutionPipeline:
         total_iterations = 0
 
         for stage in self.pipeline:
-            # Register agent in database for TUI visibility
-            self.project.db.register_agent(
-                task_id=task.id,
-                agent_type=stage.agent_type.value,
-                worktree=str(worktree_path),
-            )
+            # Claim agent slot in store for TUI visibility
+            slot: int | None = None
+            try:
+                slot = self.project.db.claim_agent_slot(
+                    task_id=task.id,
+                    agent_type=stage.agent_type.value,
+                    pid=os.getpid(),
+                    worktree=str(worktree_path),
+                )
+            except RuntimeError:
+                logger.warning(f"No agent slots available for task {task.id}")
 
             # Update task status
             task.status = self._get_stage_status(stage.agent_type)
@@ -147,23 +161,34 @@ class ExecutionPipeline:
 
                     # Log final result (individual iterations logged inside ralph method)
                     if not result.ralph_verified:
-                        self.project.db.log_execution(
-                            task_id=task.id,
-                            agent_type=stage.agent_type.value,
-                            action=f"{stage.name} (Ralph final)",
-                            output=result.output[:10000],
-                            success=result.success,
-                            duration_ms=result.duration_ms,
+                        self.project.db.append_execution_log(
+                            ExecutionLog(
+                                id=0,
+                                task_id=task.id,
+                                agent_type=stage.agent_type.value,
+                                action=f"{stage.name} (Ralph final)",
+                                output=result.output[:3000],
+                                success=result.success,
+                                duration_ms=result.duration_ms,
+                                created_at=datetime.now(),
+                            )
                         )
                 else:
+                    if ralph_enabled and not task.completion_spec:
+                        logger.warning(
+                            "Ralph loops enabled but task %s has no completion criteria; "
+                            "running single-pass",
+                            task.id,
+                        )
                     # Use traditional iteration-based execution
                     result = self._execute_stage_traditional(
                         task, stage, worktree_path, total_iterations
                     )
                     total_iterations = result.iteration  # Update total from result
             finally:
-                # Deregister agent
-                self.project.db.deregister_agent(task_id=task.id)
+                # Release agent slot
+                if slot is not None:
+                    self.project.db.release_agent_slot(slot)
 
             if not result.success:
                 # Stage failed - reset to todo
@@ -179,7 +204,55 @@ class ExecutionPipeline:
         task.status = TaskStatus.DONE
         task.updated_at = datetime.now()
         self.project.db.update_task(task)
+        self.docs_trigger_status = self._check_and_trigger_docs(task)
         return True
+
+    def _check_and_trigger_docs(self, task: Task) -> str | None:
+        """Check if documentation generation should be triggered and launch it.
+
+        After a task completes, this method checks whether all tasks in the
+        spec are done and, if so, launches an asynchronous docs generation
+        subprocess.
+
+        Args:
+            task: The task that just completed.
+
+        Returns:
+            ``"triggered"`` if the subprocess was launched,
+            ``"skipped_incomplete"`` if the spec still has pending tasks,
+            ``"skipped_error"`` if the subprocess failed to launch,
+            or ``None`` if docs generation is disabled.
+        """
+        if not self.project.config.docs_generate_on_complete:
+            return None
+
+        if not self.project.db.is_spec_complete(task.spec_id):
+            logger.info("Spec %s not yet complete; skipping docs generation", task.spec_id)
+            return "skipped_incomplete"
+
+        try:
+            subprocess.Popen(
+                [
+                    "claudecraft",
+                    "generate-docs",
+                    "--spec",
+                    task.spec_id,
+                    "--output",
+                    self.project.config.docs_output_dir,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except (OSError, FileNotFoundError) as exc:
+            logger.warning(
+                "Documentation generation failed to launch for spec %s: %s",
+                task.spec_id,
+                exc,
+            )
+            return "skipped_error"
+
+        logger.info("Documentation generation triggered for spec %s", task.spec_id)
+        return "triggered"
 
     def _execute_stage_traditional(
         self,
@@ -218,13 +291,17 @@ class ExecutionPipeline:
             last_result = result
 
             # Log execution
-            self.project.db.log_execution(
-                task_id=task.id,
-                agent_type=stage.agent_type.value,
-                action=stage.name,
-                output=result.output[:10000],
-                success=result.success,
-                duration_ms=result.duration_ms,
+            self.project.db.append_execution_log(
+                ExecutionLog(
+                    id=0,
+                    task_id=task.id,
+                    agent_type=stage.agent_type.value,
+                    action=stage.name,
+                    output=result.output[:3000],
+                    success=result.success,
+                    duration_ms=result.duration_ms,
+                    created_at=datetime.now(),
+                )
             )
 
             if result.success:
@@ -338,36 +415,6 @@ You are working in: {worktree_path}
 {plan_content if plan_content else "No implementation plan found."}
 
 {memory_context}
-## Creating Follow-up Tasks
-
-When you encounter work that should be done but is outside your current task scope,
-you may create a follow-up task. But FIRST check if a similar task already exists:
-
-```bash
-# Step 1: ALWAYS check existing tasks first
-claudecraft list-tasks --spec {task.spec_id} --json
-
-# Step 2: Only if no similar task exists, create a new one
-claudecraft task-followup <CATEGORY>-<NUMBER> "{task.spec_id}" "Task title" \\
-    --parent {task.id} \\
-    --priority <2|3> \\
-    --description "Detailed description of what needs to be done"
-```
-
-**Categories for follow-up tasks:**
-- `PLACEHOLDER-xxx`: Code you marked with TODO/NotImplementedError
-- `TECH-DEBT-xxx`: Technical debt you noticed
-- `REFACTOR-xxx`: Code that should be refactored
-- `TEST-GAP-xxx`: Missing test coverage
-- `EDGE-CASE-xxx`: Edge cases that need handling
-- `DOC-xxx`: Documentation gaps
-
-**IMPORTANT:**
-- Before creating a task, review the existing task list to avoid duplicates.
-- If a similar task exists, skip creation or note it in your output.
-- Always create tasks rather than leaving undocumented TODOs in code.
-- Use priority 2 for important issues, priority 3 for nice-to-have improvements.
-
 ## Your Task
 """
 
@@ -448,9 +495,12 @@ Output one of:
         """
         cmd = [
             self.claude_path,
-            "-p", prompt,
-            "--output-format", "json",
-            "--allowedTools", allowed_tools,
+            "-p",
+            prompt,
+            "--output-format",
+            "json",
+            "--allowedTools",
+            allowed_tools,
         ]
 
         # Add model flag if specified
@@ -491,7 +541,12 @@ Output one of:
         except subprocess.TimeoutExpired:
             return f"TIMEOUT: Agent execution exceeded {self.timeout} seconds", None, False
         except FileNotFoundError:
-            return f"ERROR: Claude CLI not found at '{self.claude_path}'. Install Claude Code or specify correct path.", None, False
+            return (
+                f"ERROR: Claude CLI not found at '{self.claude_path}'. "
+                "Install Claude Code or specify correct path.",
+                None,
+                False,
+            )
         except Exception as e:
             return f"ERROR: Failed to execute Claude: {e}", None, False
 
@@ -544,9 +599,18 @@ Output one of:
         issues = []
         for line in output.split("\n"):
             line_upper = line.upper()
-            if any(indicator in line_upper for indicator in [
-                "ERROR:", "FAIL:", "FAILED:", "BLOCKED:", "ISSUE:", "BUG:", "PROBLEM:"
-            ]):
+            if any(
+                indicator in line_upper
+                for indicator in [
+                    "ERROR:",
+                    "FAIL:",
+                    "FAILED:",
+                    "BLOCKED:",
+                    "ISSUE:",
+                    "BUG:",
+                    "PROBLEM:",
+                ]
+            ):
                 issues.append(line.strip())
         return issues[:10]  # Limit to 10 issues
 
@@ -617,9 +681,7 @@ Output one of:
         # Build default criteria based on acceptance criteria
         return self._build_default_criteria(task, agent_type)
 
-    def _build_default_criteria(
-        self, task: Task, agent_type: AgentType
-    ) -> CompletionCriteria:
+    def _build_default_criteria(self, task: Task, agent_type: AgentType) -> CompletionCriteria:
         """Build default completion criteria from task acceptance criteria.
 
         Args:
@@ -692,14 +754,26 @@ Output one of:
             Complete prompt string with Ralph section
         """
         # Get base prompt (uses ralph.current_iteration for iteration number)
-        base_prompt = self._build_agent_prompt(
-            task, stage, worktree_path, ralph.current_iteration
-        )
+        base_prompt = self._build_agent_prompt(task, stage, worktree_path, ralph.current_iteration)
 
         # Add Ralph loop section
         ralph_section = ralph.build_prompt_section(task)
 
         return base_prompt + ralph_section
+
+    def _to_active_ralph_loop(self, state: RalphLoopState, status: str) -> ActiveRalphLoop:
+        """Convert RalphLoopState into ActiveRalphLoop for persistence."""
+        return ActiveRalphLoop(
+            id=0,
+            task_id=state.task_id,
+            agent_type=state.agent_type,
+            iteration=state.iteration,
+            max_iterations=state.max_iterations,
+            started_at=state.started_at,
+            updated_at=datetime.now(),
+            verification_results=state.verification_results,
+            status=status,
+        )
 
     def execute_stage_with_ralph(
         self,
@@ -734,17 +808,35 @@ Output one of:
 
         try:
             ralph.start(task, stage.agent_type.value, criteria)
+            if ralph.state:
+                self.project.db.save_ralph_loop(
+                    self._to_active_ralph_loop(ralph.state, status="running")
+                )
         except ValueError as e:
             # Ralph disabled
             logger.debug(f"Ralph loop not started: {e}")
             return self._execute_stage(task, stage, worktree_path, 1)
 
         all_outputs: list[str] = []
-        last_result: ExecutionResult | None = None
         last_session_id: str | None = None
 
         while True:
             ralph.increment()
+
+            if ralph.state:
+                persisted_loop = self.project.db.get_ralph_loop(task.id, stage.agent_type.value)
+                if persisted_loop and persisted_loop.status == "cancelled":
+                    duration_ms = int((time.time() - start_time) * 1000)
+                    return ExecutionResult(
+                        success=False,
+                        iteration=ralph.state.iteration,
+                        output="Ralph loop cancelled",
+                        duration_ms=duration_ms,
+                        issues=["Ralph loop cancelled"],
+                        session_id=last_session_id,
+                        ralph_iterations=ralph.state.iteration,
+                        ralph_verified=False,
+                    )
 
             # Build prompt with Ralph requirements
             prompt = self._build_ralph_prompt(task, stage, worktree_path, ralph)
@@ -771,15 +863,26 @@ Output one of:
             # Check if we should continue
             should_continue, reason = ralph.should_continue(output, worktree_path)
 
+            if ralph.state:
+                self.project.db.save_ralph_loop(
+                    self._to_active_ralph_loop(ralph.state, status="running")
+                )
+
             if not should_continue:
                 # Loop finished - determine success
+                state_before_finish = ralph.state
                 ralph_result = ralph.finish()
                 success = ralph_result["success"]
+
+                if state_before_finish:
+                    final_status = "completed" if success else "failed"
+                    self.project.db.save_ralph_loop(
+                        self._to_active_ralph_loop(state_before_finish, status=final_status)
+                    )
 
                 duration_ms = int((time.time() - start_time) * 1000)
 
                 # Get last verification result if available
-                verification_result = None
                 if ralph.state and ralph.state.last_verification:
                     # Ralph loop already finished, so we need to get from result
                     pass
@@ -823,12 +926,16 @@ Output one of:
                 f"for task {task.id} stage {stage.name}"
             )
 
-            # Log to database
-            self.project.db.log_execution(
-                task_id=task.id,
-                agent_type=stage.agent_type.value,
-                action=f"{stage.name} (Ralph iter {ralph.state.iteration})",
-                output=output[:5000],  # Truncate for logging
-                success=success,
-                duration_ms=0,  # Duration tracked at loop level
+            # Log to store
+            self.project.db.append_execution_log(
+                ExecutionLog(
+                    id=0,
+                    task_id=task.id,
+                    agent_type=stage.agent_type.value,
+                    action=f"{stage.name} (Ralph iter {ralph.state.iteration})",
+                    output=output[:5000],  # Truncate for logging
+                    success=success,
+                    duration_ms=0,  # Duration tracked at loop level
+                    created_at=datetime.now(),
+                )
             )

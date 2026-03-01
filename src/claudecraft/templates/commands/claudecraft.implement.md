@@ -13,7 +13,7 @@ $ARGUMENTS - Spec ID to implement
 
 - Spec must have status: approved
 - plan.md must exist
-- Tasks must exist in database (created via /claudecraft.tasks)
+- Tasks must exist in the flat-file store (created via /claudecraft.tasks)
 
 ## Step 0: Verify Prerequisites
 
@@ -28,9 +28,9 @@ claudecraft list-tasks --spec {spec-id}
 If spec is not found or not approved, stop and inform the user.
 If no tasks exist, run `/claudecraft.tasks {spec-id}` first.
 
-## Database-Driven Execution
+## File-Driven Execution
 
-Tasks are read from and updated in the SQLite database.
+Tasks are read from and updated in flat JSON files.
 The TUI swimlane board shows real-time progress.
 
 ## CRITICAL: Agent Registration
@@ -159,4 +159,4 @@ TODO ──► IMPLEMENTING ──► TESTING ──► REVIEWING ──► DONE
 
 No human intervention after spec approval.
 All decisions made by sub-agents.
-Progress tracked in database and visible in TUI.
+Progress tracked in flat files and visible in TUI.

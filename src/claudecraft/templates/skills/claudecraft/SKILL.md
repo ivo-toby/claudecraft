@@ -25,7 +25,7 @@ ClaudeCraft is a TUI-based spec-driven development orchestrator that enables:
 - Parallel agent execution (max 6 concurrent)
 - Git worktree isolation for all implementation work
 - Real-time progress tracking in TUI
-- Database-driven task management
+- File-based task management
 
 ## The Happy Path
 
@@ -55,7 +55,7 @@ Complete workflow from idea to implementation:
 ├─────────────────────────────────────────────────────────────────────┤
 │  /claudecraft.plan    Create implementation plan                       │
 │        ↓                                                            │
-│  /claudecraft.tasks   Decompose into database tasks                    │
+│  /claudecraft.tasks   Decompose into task files                         │
 │        ↓                                                            │
 │  /claudecraft.implement Execute with parallel agents                   │
 │        ↓                                                            │
@@ -79,7 +79,7 @@ Complete workflow from idea to implementation:
 
 ### Autonomous Execution (Full Spec Workflow)
 - `/claudecraft.plan` - Create technical implementation plan
-- `/claudecraft.tasks` - Decompose plan into executable database tasks
+- `/claudecraft.tasks` - Decompose plan into executable task files
 - `/claudecraft.implement` - Execute autonomous implementation
 - `/claudecraft.qa` - Run final QA validation
 
@@ -102,18 +102,23 @@ project-root/
 ├── .claudecraft/
 │   ├── constitution.md              # Immutable project principles
 │   ├── config.yaml                  # ClaudeCraft configuration
-│   ├── claudecraft.db                  # SQLite database
-│   ├── specs.jsonl                  # Git-friendly sync
-│   └── memory/                      # Cross-session context
+│   ├── state/                       # Runtime task statuses
+│   ├── agents/                      # Active agent slots (slot-1.json .. slot-6.json)
+│   ├── logs/                        # Execution logs ({task_id}.jsonl)
+│   ├── ralph/                       # Ralph loop state ({task_id}_{agent_type}.json)
+│   └── memory/
+│       └── entities.json            # Cross-session context
 ├── specs/{spec-id}/
+│   ├── meta.json                    # Spec metadata
+│   ├── tasks/
+│   │   ├── {task-id}.json           # Task definitions
+│   │   └── ...
 │   ├── brd.md                       # Business Requirements Document
 │   ├── prd.md                       # Product Requirements Document
 │   ├── spec.md                      # Functional specification
 │   ├── plan.md                      # Technical plan
 │   ├── research.md                  # Codebase analysis
-│   ├── validation.md                # Human approval record
-│   ├── implementation/              # Task execution logs
-│   └── qa/                          # QA reports
+│   └── validation.md                # Human approval record
 ├── .claude/
 │   ├── agents/                      # Sub-agent definitions
 │   ├── commands/                    # Slash commands
@@ -128,7 +133,7 @@ project-root/
 2. **Product Requirements** (Human + AI) - Create PRD with `/claudecraft.prd`
 3. **Specification** (Human + AI) **[HUMAN GATE]** - Generate and approve spec.md
 4. **Planning** (Autonomous) - Create technical plan.md
-5. **Task Decomposition** (Autonomous) - Create tasks in database
+5. **Task Decomposition** (Autonomous) - Create task JSON files
 6. **Implementation** (Autonomous) - Parallel agent execution
 7. **Quality Assurance** (Autonomous) - Final QA and merge
 
@@ -150,12 +155,12 @@ Launch with `claudecraft tui`:
 - **Swimlane Board** (press 't'): Real-time task status across columns
 - **Agent Panel**: Live view of running Claude Code agents
 
-## Database Schema
+## Flat-File Storage Layout
 
-- **specs**: id, title, status, source_type, metadata
-- **tasks**: id, spec_id, title, status, priority, dependencies, assignee
-- **execution_logs**: task_id, agent_type, action, output, success
-- **active_agents**: task_id, agent_type, slot, pid, started_at
+- **specs/{spec-id}/meta.json**: Spec metadata (id, title, status, source_type)
+- **specs/{spec-id}/tasks/{task-id}.json**: Task definitions (title, status, priority, dependencies, assignee)
+- **.claudecraft/logs/{task_id}.jsonl**: Execution logs (agent_type, action, output, success)
+- **.claudecraft/agents/slot-{n}.json**: Active agent slots (task_id, agent_type, pid, started_at)
 
 ## Task Status Flow
 
@@ -163,7 +168,7 @@ Launch with `claudecraft tui`:
 TODO → IMPLEMENTING → TESTING → REVIEWING → DONE
 ```
 
-Tasks are stored in SQLite database, visible in TUI swimlane board.
+Tasks are stored as JSON files in `specs/{spec-id}/tasks/`, visible in TUI swimlane board.
 Use `claudecraft list-tasks` to see all tasks.
 
 ## Agent Commands

@@ -1,12 +1,12 @@
 """Agent pool manager for parallel execution."""
 
-import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
-from claudecraft.core.database import Task, TaskStatus
+from claudecraft.core.models import Task
 
 
 class AgentType(str, Enum):

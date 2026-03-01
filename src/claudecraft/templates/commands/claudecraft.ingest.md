@@ -15,7 +15,7 @@ $ARGUMENTS - Path to BRD or PRD markdown file
 2. Create new spec directory: specs/{generated-id}/
 3. Copy source document as brd.md or prd.md
 4. Extract key requirements and user stories
-5. Register spec in database:
+5. Register spec in flat-file store:
    ```bash
    # Create spec with extracted title (from first # heading in document)
    # source-type is "brd" or "prd" based on document content

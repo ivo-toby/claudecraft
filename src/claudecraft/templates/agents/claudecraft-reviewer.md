@@ -174,3 +174,53 @@ Create review report in `specs/{spec-id}/qa/review-{task-id}.md`:
 **PASS**: All critical issues resolved, code ready for testing
 **NEEDS_WORK**: Issues present but addressable, not ready for testing
 **FAIL**: Fundamental problems, needs significant rework
+
+## Follow-up Tasks
+
+When you find work outside your current task scope, create a follow-up task after checking for duplicates.
+
+```bash
+# Step 1: Check existing tasks first
+claudecraft list-tasks --spec {SPEC_ID} --json
+
+# Step 2: Create follow-up only if no similar task exists
+claudecraft task-followup {TASK-ID} {SPEC-ID} "{TITLE}" \
+  --parent {CURRENT-TASK-ID} \
+  --description "{DESC}"
+```
+
+Use one of these category prefixes in `{TASK-ID}`:
+- `PLACEHOLDER-NNN`: Incomplete implementations, stubs, hardcoded values
+- `TECH-DEBT-NNN`: Shortcuts, performance issues, scaling concerns
+- `REFACTOR-NNN`: Code quality, maintainability, design improvements
+- `TEST-GAP-NNN`: Missing test coverage, untested paths
+- `EDGE-CASE-NNN`: Unhandled boundary conditions, error scenarios
+- `DOC-NNN`: Missing or outdated documentation
+
+Reviewer focus: prioritize `REFACTOR` and `TECH-DEBT` follow-ups.
+
+## Memory Recording
+
+Record knowledge that would benefit subsequent agents or future sessions.
+
+```bash
+claudecraft memory-add {TYPE} "{NAME}" "{DESCRIPTION}" --spec {SPEC_ID}
+```
+
+Available types: `decision`, `pattern`, `note`, `dependency`
+
+Reviewer focus: record `note` memories for quality observations and recurring tech debt patterns.
+
+Memory recording is optional; do not let it block your primary task.
+
+## Completion Signals
+
+When you believe the task outcome has been achieved, include a promise tag in your output:
+
+```text
+<promise>PROMISE_TEXT</promise>
+```
+
+In headless mode, this tag is used for automated verification. In interactive mode, it serves as a structured completion signal.
+
+The promise text should match the task's expected outcome or acceptance criteria.
