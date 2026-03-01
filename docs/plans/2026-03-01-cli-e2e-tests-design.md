@@ -96,27 +96,59 @@ Each test class inherits this via `@pytest.mark.usefixtures("e2e_project")`.
 
 ## Assertion Style
 
-Tests assert on:
-1. **Exit code** — 0 for success, non-zero for errors
-2. **JSON structure** — required keys present (id, title, status, etc.)
-3. **JSON values** — specific field values where deterministic
-4. **Error messages** — stderr contains meaningful text on failure
+Tests assert on **three layers**:
 
-Example:
+1. **Exit code** — 0 for success, non-zero for errors
+2. **CLI output** — JSON structure and values from stdout
+3. **Filesystem** — files exist at the expected paths with valid JSON content
+
+Layer 3 is essential: it validates the flat-file store's core promise and catches bugs
+where the CLI reports success but writes files to the wrong location or with wrong content.
+
+Example — spec-create checks all three layers:
 ```python
-def test_spec_create_returns_spec_id(self, e2e_project):
+def test_spec_create(self, e2e_project):
     code, data = run_cli("spec-create", "my-spec", "--title", "My Spec")
+
+    # Layer 1: exit code
     assert code == 0
+
+    # Layer 2: CLI output
     assert data["id"] == "my-spec"
     assert data["title"] == "My Spec"
     assert data["status"] == "draft"
 
-def test_list_specs_json_flag_position(self, e2e_project):
+    # Layer 3: filesystem
+    meta = e2e_project / "specs" / "my-spec" / "meta.json"
+    assert meta.exists()
+    content = json.loads(meta.read_text())
+    assert content["id"] == "my-spec"
+    assert content["title"] == "My Spec"
+```
+
+Example — task-update checks runtime state file:
+```python
+def test_task_update_writes_runtime_state(self, e2e_project):
     run_cli("spec-create", "s1", "--title", "S1")
-    code, data = run_cli("list-specs")        # --json is prepended by run_cli
-    assert code == 0
-    assert isinstance(data, list)
-    assert data[0]["id"] == "s1"
+    run_cli("task-create", "TASK-001", "s1", "My task", "--priority", "1")
+    run_cli("task-update", "TASK-001", "--status", "implementing")
+
+    # Layer 3: runtime state written to .claudecraft/state/
+    state_file = e2e_project / ".claudecraft" / "state" / "s1.json"
+    assert state_file.exists()
+    state = json.loads(state_file.read_text())
+    assert state["tasks"]["TASK-001"]["status"] == "implementing"
+
+    # Definition file must NOT be modified
+    defn = e2e_project / "specs" / "s1" / "tasks" / "TASK-001.json"
+    defn_content = json.loads(defn.read_text())
+    assert "status" not in defn_content  # runtime fields stay out of definition
+```
+
+Example — no SQLite file after init:
+```python
+def test_init_no_sqlite(self, e2e_project):
+    assert not (e2e_project / ".claudecraft" / "claudecraft.db").exists()
 ```
 
 ---
@@ -136,5 +168,8 @@ def test_list_specs_json_flag_position(self, e2e_project):
 - All ~20 command groups have at least one happy-path test
 - Every flag documented in the testing guide has a corresponding test
 - The `--json` flag position bug would be caught by running this suite
+- Every write command verifies the resulting file(s) on disk (path + content)
+- `test_init_no_sqlite` confirms no SQLite file is created by a fresh init
+- `task-update` confirms definition file is untouched, only runtime state changes
 - Suite runs in < 10 seconds total
-- Zero new dependencies required (uses stdlib `io`, `contextlib`)
+- Zero new dependencies required (uses stdlib `io`, `contextlib`, `json`, `pathlib`)
