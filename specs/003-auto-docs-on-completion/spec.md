@@ -5,6 +5,14 @@
 **Status**: Draft
 **Input**: Auto-generate documentation when implementation tasks complete
 
+## Clarifications
+
+### Session 2026-03-01
+
+- Q: FR-003 (async, non-blocking) conflicts with FR-007 (execution summary includes docs status). If generation is async, the summary is produced before generation finishes — what should the summary report? → A: The execution summary reports whether generation was triggered or skipped, not its outcome. Checking the actual outcome (success/failure) is a separate concern (e.g., `generate-docs --status` or checking the output directory).
+- Q: What counts as "last task done" for triggering docs generation? Tasks can be skipped or cancelled — does completing the 3rd of 3 remaining tasks (out of 5 total) trigger it? → A: Trigger when all non-skipped/non-cancelled tasks are done. A spec is "complete" when every task with an active status has reached done.
+- Q: The assumptions mention `docs.enabled` and `docs.generate_on_complete` — are both needed or is one sufficient? → A: Single flag: `docs.generate_on_complete` controls auto-trigger. The manual `generate-docs` CLI always works regardless of this flag.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Documentation generated after spec implementation completes (Priority: P1)
@@ -48,7 +56,7 @@ After headless execution completes, the execution summary indicates whether docu
 
 **Acceptance Scenarios**:
 
-1. **Given** docs generation is enabled and the last task completes, **When** the execution summary is displayed, **Then** it includes a line indicating documentation was generated (or failed with a reason).
+1. **Given** docs generation is enabled and the last task completes, **When** the execution summary is displayed, **Then** it includes a line indicating documentation generation was triggered (not outcome — generation runs asynchronously).
 2. **Given** docs generation is disabled, **When** the execution summary is displayed, **Then** it does not mention documentation at all.
 
 ---
@@ -64,13 +72,13 @@ After headless execution completes, the execution summary indicates whether docu
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST trigger documentation generation when the last task of a spec transitions to done status, if documentation generation is enabled in project configuration.
-- **FR-002**: The system MUST read the documentation generation setting from the project configuration (enabled/disabled toggle and output directory).
+- **FR-001**: The system MUST trigger documentation generation when all non-skipped/non-cancelled tasks of a spec have reached done status, if documentation generation is enabled in project configuration. Skipped and cancelled tasks are excluded from the completion check.
+- **FR-002**: The system MUST read the `docs.generate_on_complete` setting from the project configuration (single boolean toggle) and the `docs.output_directory` setting. The manual `generate-docs` CLI works regardless of this flag.
 - **FR-003**: Documentation generation MUST run asynchronously and not block the execution pipeline or delay task status updates.
 - **FR-004**: The system MUST log the outcome of documentation generation (success, failure with reason, or skipped).
 - **FR-005**: The `claudecraft generate-docs` command MUST continue to work as a standalone manual trigger independent of the automated path.
 - **FR-006**: Documentation generation failures MUST NOT affect task status or execution pipeline results. A task that completed successfully remains done regardless of docs generation outcome.
-- **FR-007**: The execution summary (both human-readable and JSON) MUST include documentation generation status when docs generation is enabled.
+- **FR-007**: The execution summary (both human-readable and JSON) MUST include whether documentation generation was triggered or skipped when docs generation is enabled. The summary reports trigger status, not outcome (generation runs asynchronously per FR-003).
 
 ## Success Criteria *(mandatory)*
 
@@ -86,4 +94,4 @@ After headless execution completes, the execution summary indicates whether docu
 - The `claudecraft generate-docs` command and the docs-generator agent already exist and produce usable output. This spec is about triggering them at the right time, not about improving doc quality.
 - The execution pipeline knows which spec a task belongs to and can determine whether it was the last task to complete.
 - Documentation generation is an optional, non-blocking side effect. It never gates task completion or spec status.
-- The project configuration already has `docs.enabled` and `docs.generate_on_complete` fields. This spec is about making those fields actually functional.
+- The project configuration already has a `docs.generate_on_complete` field (single boolean). This spec is about making that field actually functional. The manual `generate-docs` CLI always works regardless of this setting.

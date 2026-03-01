@@ -110,6 +110,7 @@ class ExecutionPipeline:
         self.claude_path = claude_path
         self.timeout = timeout
         self.ralph_config = ralph_config or self._get_ralph_config()
+        self.docs_trigger_status: str | None = None
 
     def execute_task(
         self,
@@ -203,7 +204,55 @@ class ExecutionPipeline:
         task.status = TaskStatus.DONE
         task.updated_at = datetime.now()
         self.project.db.update_task(task)
+        self.docs_trigger_status = self._check_and_trigger_docs(task)
         return True
+
+    def _check_and_trigger_docs(self, task: Task) -> str | None:
+        """Check if documentation generation should be triggered and launch it.
+
+        After a task completes, this method checks whether all tasks in the
+        spec are done and, if so, launches an asynchronous docs generation
+        subprocess.
+
+        Args:
+            task: The task that just completed.
+
+        Returns:
+            ``"triggered"`` if the subprocess was launched,
+            ``"skipped_incomplete"`` if the spec still has pending tasks,
+            ``"skipped_error"`` if the subprocess failed to launch,
+            or ``None`` if docs generation is disabled.
+        """
+        if not self.project.config.docs_generate_on_complete:
+            return None
+
+        if not self.project.db.is_spec_complete(task.spec_id):
+            logger.info("Spec %s not yet complete; skipping docs generation", task.spec_id)
+            return "skipped_incomplete"
+
+        try:
+            subprocess.Popen(
+                [
+                    "claudecraft",
+                    "generate-docs",
+                    "--spec",
+                    task.spec_id,
+                    "--output",
+                    self.project.config.docs_output_dir,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except (OSError, FileNotFoundError) as exc:
+            logger.warning(
+                "Documentation generation failed to launch for spec %s: %s",
+                task.spec_id,
+                exc,
+            )
+            return "skipped_error"
+
+        logger.info("Documentation generation triggered for spec %s", task.spec_id)
+        return "triggered"
 
     def _execute_stage_traditional(
         self,
