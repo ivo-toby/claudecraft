@@ -35,12 +35,14 @@ class TestProject:
 
         project.close()
 
-    def test_init_creates_database(self, temp_dir):
-        """Test project initialization creates database."""
+    def test_init_creates_store(self, temp_dir):
+        """Test project initialization creates FileStore directories."""
         project = Project.init(temp_dir)
 
-        db_path = temp_dir / ".claudecraft" / "claudecraft.db"
-        assert db_path.exists()
+        # FileStore uses directory-based storage instead of a SQLite file
+        assert (temp_dir / ".claudecraft").exists()
+        assert isinstance(project.db.project_root, Path)
+        assert project.db.project_root == temp_dir
 
         project.close()
 

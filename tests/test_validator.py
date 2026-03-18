@@ -216,7 +216,7 @@ Some requirements [TODO]
 
     def test_validate_no_source(self, temp_project):
         """Test validation without source document."""
-        from claudecraft.core.database import Spec, SpecStatus
+        from claudecraft.core.models import Spec, SpecStatus
         from datetime import datetime
 
         # Create spec without source

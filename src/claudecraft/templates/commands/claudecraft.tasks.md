@@ -1,9 +1,9 @@
 ---
 name: claudecraft.tasks
-description: Decompose plan into executable tasks with dependencies (database-driven)
+description: Decompose plan into executable tasks with dependencies (file-driven)
 ---
 
-Break technical plan into atomic, executable tasks stored directly in the database.
+Break technical plan into atomic, executable tasks stored directly in flat JSON files.
 
 ## Arguments
 
@@ -14,9 +14,9 @@ $ARGUMENTS - Spec ID to create tasks for
 - plan.md must exist
 - Spec status: planned (set by /claudecraft.plan)
 
-## Database-First Approach
+## File-First Approach
 
-Tasks are created DIRECTLY in the SQLite database - no tasks.md file is created.
+Tasks are created DIRECTLY as flat JSON files - no tasks.md file is created.
 This enables real-time tracking in the TUI swimlane board.
 
 ## Execution Flow
@@ -37,7 +37,7 @@ This enables real-time tracking in the TUI swimlane board.
    - Mark parallelizable tasks
    - Estimate complexity
 
-4. **Create Tasks in Database**
+4. **Create Tasks in Flat-File Store**
    - Use the claudecraft CLI to create tasks:
 
    ```bash
@@ -120,7 +120,7 @@ Tasks use the following statuses (swimlane columns):
 
 ## Output
 
-- Summary of tasks created in database
+- Summary of tasks created in the flat-file store
 - Total task count by priority
 - Ready task count (no dependencies)
 - Dependency relationships
@@ -130,7 +130,7 @@ Tasks use the following statuses (swimlane columns):
 ## IMPORTANT
 
 - Do NOT create a tasks.md file
-- All tasks go directly to the database
+- All tasks go directly to flat files
 - The TUI swimlane board shows tasks in real-time
 - Use consistent task ID format: TASK-001, TASK-002, etc.
 

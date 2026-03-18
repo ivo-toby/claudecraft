@@ -1,21 +1,32 @@
 """Tests for execution pipeline."""
 
 import json
-import pytest
-from pathlib import Path
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from claudecraft.core.database import Task, TaskStatus, Spec, SpecStatus
+import pytest
+
+from claudecraft.core.models import (
+    ActiveRalphLoop,
+    CompletionCriteria,
+    Spec,
+    SpecStatus,
+    Task,
+    TaskCompletionSpec,
+    TaskStatus,
+    VerificationMethod,
+)
 from claudecraft.core.project import Project
 from claudecraft.orchestration.agent_pool import AgentPool, AgentType
 from claudecraft.orchestration.execution import (
-    ExecutionPipeline,
-    PipelineStage,
-    ExecutionResult,
-    AGENT_TYPE_TO_NAME,
     AGENT_ALLOWED_TOOLS,
+    AGENT_TYPE_TO_NAME,
+    ExecutionPipeline,
+    ExecutionResult,
+    PipelineStage,
 )
+from claudecraft.orchestration.ralph import RalphLoop, RalphLoopConfig
 
 
 @pytest.fixture
@@ -39,9 +50,7 @@ def pipeline(project, agent_pool):
 @pytest.fixture
 def sample_task(project):
     """Create a sample task."""
-    # Create spec first (required for foreign key)
-    from claudecraft.core.database import Spec, SpecStatus
-
+    # Create spec first
     spec = Spec(
         id="spec-1",
         title="Test Spec",
@@ -322,17 +331,16 @@ class TestBuildAgentPrompt:
         assert "QA PASSED" in prompt
         assert "QA FAILED" in prompt
 
-    def test_prompt_includes_followup_instructions(self, pipeline, sample_task):
-        """Test that prompt includes follow-up task instructions."""
+    def test_prompt_does_not_include_dynamic_followup_instructions(self, pipeline, sample_task):
+        """Test follow-up task instructions are no longer dynamically injected."""
         stage = PipelineStage("Implementation", AgentType.CODER, max_iterations=3)
         worktree_path = Path("/tmp/test-worktree")
 
         prompt = pipeline._build_agent_prompt(sample_task, stage, worktree_path, 1)
 
-        assert "claudecraft task-followup" in prompt
-        assert "PLACEHOLDER-" in prompt
-        assert "TECH-DEBT-" in prompt
-        assert "claudecraft list-tasks" in prompt
+        assert "## Creating Follow-up Tasks" not in prompt
+        assert "claudecraft task-followup" not in prompt
+        assert "claudecraft list-tasks" not in prompt
 
 
 class TestRunClaudeHeadless:
@@ -342,7 +350,9 @@ class TestRunClaudeHeadless:
         """Test successful Claude execution."""
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = json.dumps({"result": "IMPLEMENTATION COMPLETE", "session_id": "sess-123"})
+        mock_result.stdout = json.dumps(
+            {"result": "IMPLEMENTATION COMPLETE", "session_id": "sess-123"}
+        )
         mock_result.stderr = ""
 
         with patch("subprocess.run", return_value=mock_result) as mock_run:
@@ -549,27 +559,30 @@ class TestExecuteTask:
         assert "failure_stage" in task.metadata
 
     def test_execute_task_registers_agent(self, pipeline, sample_task, tmp_path):
-        """Test that agents are registered during execution."""
+        """Test that agent slots are claimed and released during execution."""
         worktree_path = tmp_path / "worktree"
         worktree_path.mkdir()
 
-        # Track register/deregister calls
-        register_calls = []
-        deregister_calls = []
+        # Track claim/release calls
+        claim_calls = []
+        release_calls = []
 
-        original_register = pipeline.project.db.register_agent
-        original_deregister = pipeline.project.db.deregister_agent
+        original_claim = pipeline.project.db.claim_agent_slot
+        original_release = pipeline.project.db.release_agent_slot
 
-        def mock_register(*args, **kwargs):
-            register_calls.append(kwargs)
-            return original_register(*args, **kwargs)
+        slot_counter = [0]
 
-        def mock_deregister(*args, **kwargs):
-            deregister_calls.append(kwargs)
-            return original_deregister(*args, **kwargs)
+        def mock_claim(*args, **kwargs):
+            claim_calls.append(kwargs)
+            slot_counter[0] += 1
+            return original_claim(*args, **kwargs)
 
-        pipeline.project.db.register_agent = mock_register
-        pipeline.project.db.deregister_agent = mock_deregister
+        def mock_release(*args, **kwargs):
+            release_calls.append(args)
+            return original_release(*args, **kwargs)
+
+        pipeline.project.db.claim_agent_slot = mock_claim
+        pipeline.project.db.release_agent_slot = mock_release
 
         # Make all stages pass quickly
         def mock_run(*args, **kwargs):
@@ -582,9 +595,9 @@ class TestExecuteTask:
         with patch("subprocess.run", side_effect=mock_run):
             pipeline.execute_task(sample_task, worktree_path)
 
-        # Each stage should register and deregister
-        assert len(register_calls) == 4  # 4 stages
-        assert len(deregister_calls) == 4
+        # Each stage should claim and release a slot
+        assert len(claim_calls) == 4  # 4 stages
+        assert len(release_calls) == 4
 
     def test_execute_task_logs_execution(self, pipeline, sample_task, tmp_path):
         """Test that execution is logged."""
@@ -656,18 +669,10 @@ class TestCheckStageSuccess:
 # Phase 4 Tests: Ralph Loop Integration
 # =============================================================================
 
-from claudecraft.core.database import (
-    CompletionCriteria,
-    TaskCompletionSpec,
-    VerificationMethod,
-)
-from claudecraft.orchestration.ralph import RalphLoop, RalphLoopConfig
-
 
 @pytest.fixture
 def sample_task_with_spec(project):
     """Create a sample task with completion spec."""
-    from claudecraft.core.database import Spec, SpecStatus
 
     spec = Spec(
         id="spec-ralph",
@@ -761,9 +766,7 @@ class TestGetCompletionCriteria:
 
     def test_get_criteria_from_task_spec(self, pipeline, sample_task_with_spec):
         """Test getting criteria from task completion spec."""
-        criteria = pipeline._get_completion_criteria(
-            sample_task_with_spec, AgentType.CODER
-        )
+        criteria = pipeline._get_completion_criteria(sample_task_with_spec, AgentType.CODER)
 
         assert criteria is not None
         assert criteria.promise == "CODER_COMPLETE"
@@ -782,17 +785,13 @@ class TestGetCompletionCriteria:
         """Test returns None when Ralph is disabled."""
         pipeline.ralph_config = RalphLoopConfig(enabled=False)
 
-        criteria = pipeline._get_completion_criteria(
-            sample_task_with_spec, AgentType.CODER
-        )
+        criteria = pipeline._get_completion_criteria(sample_task_with_spec, AgentType.CODER)
 
         assert criteria is None
 
     def test_get_criteria_for_different_agents(self, pipeline, sample_task_with_spec):
         """Test getting criteria for different agent types."""
-        coder_criteria = pipeline._get_completion_criteria(
-            sample_task_with_spec, AgentType.CODER
-        )
+        coder_criteria = pipeline._get_completion_criteria(sample_task_with_spec, AgentType.CODER)
         reviewer_criteria = pipeline._get_completion_criteria(
             sample_task_with_spec, AgentType.REVIEWER
         )
@@ -834,9 +833,7 @@ class TestBuildDefaultCriteria:
 
     def test_default_criteria_includes_acceptance(self, pipeline, sample_task_with_spec):
         """Test default criteria includes acceptance criteria."""
-        criteria = pipeline._build_default_criteria(
-            sample_task_with_spec, AgentType.REVIEWER
-        )
+        criteria = pipeline._build_default_criteria(sample_task_with_spec, AgentType.REVIEWER)
 
         assert "check_for" in criteria.verification_config
         assert "Tests pass" in criteria.verification_config["check_for"]
@@ -855,9 +852,7 @@ class TestBuildRalphPrompt:
         ralph.start(sample_task_with_spec, "coder")
         ralph.increment()
 
-        prompt = pipeline._build_ralph_prompt(
-            sample_task_with_spec, stage, worktree_path, ralph
-        )
+        prompt = pipeline._build_ralph_prompt(sample_task_with_spec, stage, worktree_path, ralph)
 
         # Should include base prompt content
         assert "claudecraft-coder" in prompt
@@ -878,9 +873,7 @@ class TestBuildRalphPrompt:
         ralph.increment()
         ralph.increment()  # Now at iteration 2
 
-        prompt = pipeline._build_ralph_prompt(
-            sample_task_with_spec, stage, worktree_path, ralph
-        )
+        prompt = pipeline._build_ralph_prompt(sample_task_with_spec, stage, worktree_path, ralph)
 
         assert "2/" in prompt  # Should show "2/10" or similar
 
@@ -898,16 +891,12 @@ class TestExecuteStageWithRalph:
         def mock_run(*args, **kwargs):
             result = MagicMock()
             result.returncode = 0
-            result.stdout = json.dumps({
-                "result": "Done! <promise>CODER_COMPLETE</promise>"
-            })
+            result.stdout = json.dumps({"result": "Done! <promise>CODER_COMPLETE</promise>"})
             result.stderr = ""
             return result
 
         with patch("subprocess.run", side_effect=mock_run):
-            result = pipeline.execute_stage_with_ralph(
-                sample_task_with_spec, stage, worktree_path
-            )
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
 
         assert result.success is True
         assert result.ralph_verified is True
@@ -931,9 +920,7 @@ class TestExecuteStageWithRalph:
             return result
 
         with patch("subprocess.run", side_effect=mock_run):
-            result = pipeline.execute_stage_with_ralph(
-                sample_task_with_spec, stage, worktree_path
-            )
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
 
         assert result.success is False
         assert result.ralph_iterations == 2
@@ -954,21 +941,130 @@ class TestExecuteStageWithRalph:
             return result
 
         with patch("subprocess.run", side_effect=mock_run):
-            result = pipeline.execute_stage_with_ralph(
-                sample_task_with_spec, stage, worktree_path
-            )
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
 
         # Should succeed via regular execution
         assert result.success is True
         assert result.ralph_iterations == 0
 
+    def test_execute_with_ralph_persists_start_iteration_and_finish(
+        self, pipeline, sample_task_with_spec, tmp_path
+    ):
+        """Test Ralph loop persistence is called at lifecycle checkpoints."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = json.dumps({"result": "Done! <promise>CODER_COMPLETE</promise>"})
+            result.stderr = ""
+            return result
+
+        with (
+            patch.object(pipeline.project.db, "save_ralph_loop") as mock_save,
+            patch("subprocess.run", side_effect=mock_run),
+        ):
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
+
+        assert result.success is True
+        assert mock_save.call_count >= 3
+
+        statuses = [call.args[0].status for call in mock_save.call_args_list]
+        assert statuses[0] == "running"
+        assert "completed" in statuses
+
+    def test_execute_with_ralph_breaks_when_loop_cancelled(
+        self, pipeline, sample_task_with_spec, tmp_path
+    ):
+        """Test cancellation flag interrupts Ralph loop before agent execution."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        cancelled_loop = ActiveRalphLoop(
+            id=0,
+            task_id=sample_task_with_spec.id,
+            agent_type=stage.agent_type.value,
+            iteration=1,
+            max_iterations=10,
+            started_at=datetime.now(),
+            updated_at=datetime.now(),
+            verification_results=[],
+            status="cancelled",
+        )
+
+        with (
+            patch.object(pipeline.project.db, "get_ralph_loop", return_value=cancelled_loop),
+            patch("subprocess.run") as mock_run,
+        ):
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
+
+        assert result.success is False
+        assert result.output == "Ralph loop cancelled"
+        mock_run.assert_not_called()
+
+
+class TestRalphPersistenceHelpers:
+    """Tests for Ralph persistence helper behavior."""
+
+    def test_to_active_ralph_loop_maps_fields(self, pipeline, sample_task_with_spec):
+        """Test ActiveRalphLoop fields map from RalphLoopState."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        criteria = pipeline._get_completion_criteria(sample_task_with_spec, stage.agent_type)
+        assert criteria is not None
+
+        ralph = RalphLoop(pipeline.ralph_config, pipeline.project)
+        ralph.start(sample_task_with_spec, stage.agent_type.value, criteria)
+        ralph.increment()
+
+        assert ralph.state is not None
+        active_loop = pipeline._to_active_ralph_loop(ralph.state, "running")
+
+        assert active_loop.id == 0
+        assert active_loop.task_id == ralph.state.task_id
+        assert active_loop.agent_type == ralph.state.agent_type
+        assert active_loop.iteration == ralph.state.iteration
+        assert active_loop.max_iterations == ralph.state.max_iterations
+        assert active_loop.started_at == ralph.state.started_at
+        assert active_loop.verification_results == ralph.state.verification_results
+        assert active_loop.status == "running"
+
+    def test_ralph_state_persisted_for_status_queries(
+        self, pipeline, sample_task_with_spec, tmp_path
+    ):
+        """Test persisted loop state is available for ralph-status style reads."""
+        stage = PipelineStage("Implementation", AgentType.CODER)
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = json.dumps({"result": "Done! <promise>CODER_COMPLETE</promise>"})
+            result.stderr = ""
+            return result
+
+        with patch("subprocess.run", side_effect=mock_run):
+            result = pipeline.execute_stage_with_ralph(sample_task_with_spec, stage, worktree_path)
+
+        assert result.success is True
+
+        persisted = pipeline.project.db.get_ralph_loop(
+            sample_task_with_spec.id, stage.agent_type.value
+        )
+        assert persisted is not None
+        assert persisted.status == "completed"
+
+        completed_loops = pipeline.project.db.list_active_ralph_loops(status="completed")
+        assert any(loop.task_id == sample_task_with_spec.id for loop in completed_loops)
+
 
 class TestExecuteTaskWithRalph:
     """Tests for execute_task with Ralph integration."""
 
-    def test_execute_task_uses_ralph_when_enabled(
-        self, pipeline, sample_task_with_spec, tmp_path
-    ):
+    def test_execute_task_uses_ralph_when_enabled(self, pipeline, sample_task_with_spec, tmp_path):
         """Test that execute_task uses Ralph for tasks with completion specs."""
         worktree_path = tmp_path / "worktree"
         worktree_path.mkdir()
@@ -1023,15 +1119,40 @@ class TestExecuteTaskWithRalph:
 
         with patch("subprocess.run", side_effect=mock_run):
             # Disable Ralph via parameter
-            success = pipeline.execute_task(
-                sample_task_with_spec, worktree_path, use_ralph=False
-            )
+            success = pipeline.execute_task(sample_task_with_spec, worktree_path, use_ralph=False)
 
         assert success is True
 
-    def test_execute_task_records_ralph_failure(
-        self, pipeline, sample_task_with_spec, tmp_path
+    def test_execute_task_warns_when_ralph_enabled_without_completion_spec(
+        self, pipeline, sample_task, tmp_path
     ):
+        """Test warning is logged when Ralph is enabled but task lacks completion spec."""
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        pipeline.ralph_config = RalphLoopConfig(enabled=True)
+
+        def mock_run(*args, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = json.dumps({"result": "PASS"})
+            result.stderr = ""
+            return result
+
+        with (
+            patch("claudecraft.orchestration.execution.logger.warning") as mock_warning,
+            patch("subprocess.run", side_effect=mock_run),
+        ):
+            success = pipeline.execute_task(sample_task, worktree_path)
+
+        assert success is True
+        assert mock_warning.call_count == 4
+        mock_warning.assert_any_call(
+            "Ralph loops enabled but task %s has no completion criteria; running single-pass",
+            sample_task.id,
+        )
+
+    def test_execute_task_records_ralph_failure(self, pipeline, sample_task_with_spec, tmp_path):
         """Test that Ralph failure is recorded in task metadata."""
         worktree_path = tmp_path / "worktree"
         worktree_path.mkdir()
@@ -1085,3 +1206,167 @@ class TestExecutionResultWithRalph:
 
         assert result.ralph_iterations == 3
         assert result.ralph_verified is True
+
+
+class TestDocsAutoTrigger:
+    """Tests for automatic documentation generation trigger (003-auto-docs-on-completion)."""
+
+    def test_trigger_fires_when_enabled_and_spec_complete(self, pipeline, sample_task):
+        """Docs generation is triggered when config enabled and all tasks DONE."""
+        pipeline.project.config.docs_generate_on_complete = True
+        pipeline.project.config.docs_output_dir = "docs"
+
+        # Mark task as DONE so is_spec_complete returns True
+        sample_task.status = TaskStatus.DONE
+        pipeline.project.db.update_task(sample_task)
+
+        with patch("claudecraft.orchestration.execution.subprocess.Popen") as mock_popen:
+            result = pipeline._check_and_trigger_docs(sample_task)
+
+        assert result == "triggered"
+        mock_popen.assert_called_once()
+        call_args = mock_popen.call_args[0][0]
+        assert call_args[0] == "claudecraft"
+        assert call_args[1] == "generate-docs"
+        assert "--spec" in call_args
+        assert sample_task.spec_id in call_args
+
+    def test_trigger_does_not_fire_when_disabled(self, pipeline, sample_task):
+        """Docs generation is skipped when config is disabled."""
+        pipeline.project.config.docs_generate_on_complete = False
+
+        with patch("claudecraft.orchestration.execution.subprocess.Popen") as mock_popen:
+            result = pipeline._check_and_trigger_docs(sample_task)
+
+        assert result is None
+        mock_popen.assert_not_called()
+
+    def test_trigger_does_not_fire_when_spec_not_complete(
+        self, pipeline, project, sample_task
+    ):
+        """Docs generation is skipped when spec still has non-DONE tasks."""
+        pipeline.project.config.docs_generate_on_complete = True
+
+        # Add another task that is NOT done
+        task2 = Task(
+            id="task-2",
+            spec_id="spec-1",
+            title="Second task",
+            description="Still pending",
+            status=TaskStatus.TODO,
+            priority=1,
+            dependencies=[],
+            assignee=None,
+            worktree=None,
+            metadata={},
+            iteration=0,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        project.db.create_task(task2)
+
+        with patch("claudecraft.orchestration.execution.subprocess.Popen") as mock_popen:
+            result = pipeline._check_and_trigger_docs(sample_task)
+
+        assert result == "skipped_incomplete"
+        mock_popen.assert_not_called()
+
+    def test_subprocess_failure_does_not_affect_task_status(
+        self, pipeline, sample_task
+    ):
+        """Popen failure returns skipped_error but task stays DONE."""
+        pipeline.project.config.docs_generate_on_complete = True
+        pipeline.project.config.docs_output_dir = "docs"
+
+        # Mark task DONE
+        sample_task.status = TaskStatus.DONE
+        pipeline.project.db.update_task(sample_task)
+
+        with patch(
+            "claudecraft.orchestration.execution.subprocess.Popen",
+            side_effect=OSError("command not found"),
+        ):
+            result = pipeline._check_and_trigger_docs(sample_task)
+
+        assert result == "skipped_error"
+        # Task should still be DONE
+        refreshed = pipeline.project.db.get_task(sample_task.id)
+        assert refreshed.status == TaskStatus.DONE
+
+    def test_docs_trigger_status_set_on_pipeline(self, pipeline, sample_task):
+        """Pipeline.docs_trigger_status is set correctly after _check_and_trigger_docs."""
+        pipeline.project.config.docs_generate_on_complete = True
+        pipeline.project.config.docs_output_dir = "docs"
+
+        sample_task.status = TaskStatus.DONE
+        pipeline.project.db.update_task(sample_task)
+
+        with patch("claudecraft.orchestration.execution.subprocess.Popen"):
+            pipeline.docs_trigger_status = pipeline._check_and_trigger_docs(
+                sample_task
+            )
+
+        assert pipeline.docs_trigger_status == "triggered"
+
+    def test_docs_trigger_status_none_when_disabled(self, pipeline, sample_task):
+        """Pipeline.docs_trigger_status is None when docs generation is disabled."""
+        pipeline.project.config.docs_generate_on_complete = False
+
+        pipeline.docs_trigger_status = pipeline._check_and_trigger_docs(sample_task)
+
+        assert pipeline.docs_trigger_status is None
+
+
+class TestDocsSummaryContract:
+    """Tests for docs_generation field in execution summary (FR-007 contract)."""
+
+    def _build_summary(self, config_enabled: bool, trigger_status: str | None) -> dict:
+        """Build a summary dict following the same logic as cmd_execute in cli.py."""
+        result: dict[str, object] = {
+            "success": True,
+            "executed": [],
+            "total": 1,
+            "successful": 1,
+            "failed": 0,
+            "parallel_slots": 6,
+        }
+        if config_enabled:
+            result["docs_generation"] = trigger_status or "skipped_incomplete"
+        return result
+
+    def test_summary_includes_triggered_when_enabled(self):
+        """JSON summary has docs_generation: triggered when config enabled and trigger fired."""
+        summary = self._build_summary(config_enabled=True, trigger_status="triggered")
+
+        assert "docs_generation" in summary
+        assert summary["docs_generation"] == "triggered"
+
+    def test_summary_includes_skipped_incomplete(self):
+        """JSON summary has docs_generation: skipped_incomplete when spec not done."""
+        summary = self._build_summary(
+            config_enabled=True, trigger_status="skipped_incomplete"
+        )
+
+        assert "docs_generation" in summary
+        assert summary["docs_generation"] == "skipped_incomplete"
+
+    def test_summary_includes_skipped_error(self):
+        """JSON summary has docs_generation: skipped_error on Popen failure."""
+        summary = self._build_summary(
+            config_enabled=True, trigger_status="skipped_error"
+        )
+
+        assert "docs_generation" in summary
+        assert summary["docs_generation"] == "skipped_error"
+
+    def test_summary_omits_field_when_disabled(self):
+        """JSON summary has NO docs_generation field when config is disabled."""
+        summary = self._build_summary(config_enabled=False, trigger_status=None)
+
+        assert "docs_generation" not in summary
+
+    def test_summary_defaults_to_skipped_incomplete_when_none(self):
+        """When trigger_status is None but config is enabled, default to skipped_incomplete."""
+        summary = self._build_summary(config_enabled=True, trigger_status=None)
+
+        assert summary["docs_generation"] == "skipped_incomplete"

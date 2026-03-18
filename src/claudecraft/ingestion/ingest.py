@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from claudecraft.core.database import Spec, SpecStatus
+from claudecraft.core.models import Spec, SpecStatus
 from claudecraft.core.project import Project
 
 

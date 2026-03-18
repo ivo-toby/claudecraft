@@ -3,8 +3,8 @@
 from pathlib import Path
 
 from textual.app import ComposeResult
-from textual.containers import Container, VerticalScroll
-from textual.widgets import Label, TabbedContent, TabPane, TextArea
+from textual.containers import Container
+from textual.widgets import TabbedContent, TabPane, TextArea
 
 
 class SpecEditor(Container):

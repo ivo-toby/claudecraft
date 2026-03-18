@@ -9,9 +9,9 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.message import Message
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Footer, Header, Label, Static, TextArea, Select
+from textual.widgets import Button, Footer, Header, Static, TextArea
 
-from claudecraft.core.database import ActiveRalphLoop, Task, TaskStatus
+from claudecraft.core.models import ActiveRalphLoop, Task, TaskStatus
 
 
 class TaskCard(Static, can_focus=True):
@@ -259,9 +259,13 @@ class SwimLane(Vertical, can_focus=True):
         yield Static(f"[{num}] {label} ({len(self.tasks)})", classes="lane-header")
 
         with VerticalScroll(classes="lane-content"):
+            ralph_loops = (
+                {loop.task_id: loop for loop in self.db.list_active_ralph_loops(status="running")}
+                if self.db else {}
+            )
             for task in self.tasks:
                 is_blocked = self.db.is_task_blocked(task) if self.db else False
-                ralph_loop = self.db.get_ralph_loop(task.id) if self.db else None
+                ralph_loop = ralph_loops.get(task.id)
                 yield TaskCard(task, is_blocked=is_blocked, ralph_loop=ralph_loop)
 
     def refresh_tasks(self, tasks: list[Task]) -> None:
@@ -286,9 +290,13 @@ class SwimLane(Vertical, can_focus=True):
         # Find the scroll container and update its contents
         scroll = self.query_one(".lane-content", VerticalScroll)
         scroll.remove_children()
+        ralph_loops = (
+            {loop.task_id: loop for loop in self.db.list_active_ralph_loops(status="running")}
+            if self.db else {}
+        )
         for task in tasks:
             is_blocked = self.db.is_task_blocked(task) if self.db else False
-            ralph_loop = self.db.get_ralph_loop(task.id) if self.db else None
+            ralph_loop = ralph_loops.get(task.id)
             scroll.mount(TaskCard(task, is_blocked=is_blocked, ralph_loop=ralph_loop))
 
     def focus_first_card(self) -> None:
@@ -758,7 +766,8 @@ class SwimlaneBoard(Container):
             return
 
         db = self.app.project.db
-        updated = db.get_tasks_updated_since(self.spec_id, self.last_check)
+        tasks = db.list_tasks(self.spec_id)
+        updated = [t for t in tasks if t.updated_at > self.last_check]
 
         if updated:
             self.last_check = datetime.now()
@@ -813,7 +822,9 @@ class SwimlaneBoard(Container):
         task_data = event.task_data
         db = self.app.project.db
         logs = db.get_execution_logs(task_data.id)
-        ralph_loop = db.get_ralph_loop(task_data.id)
+        # Get the most recent active ralph loop for this task
+        all_loops = db.list_active_ralph_loops(status="running")
+        ralph_loop = next((lp for lp in all_loops if lp.task_id == task_data.id), None)
 
         def handle_detail_result(result: Task | None) -> None:
             if result is not None:
@@ -854,7 +865,9 @@ class SwimlaneBoard(Container):
 
         db = self.app.project.db
         new_status = TaskStatus(result["new_status"])
-        db.update_task_status(result["task_id"], new_status)
+        task = db.get_task(result["task_id"])
+        if task:
+            db.update_task_status(result["task_id"], task.spec_id, new_status)
         self._refresh_lanes()
         self.app.notify(f"Task moved to {new_status.value}")
 

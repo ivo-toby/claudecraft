@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from claudecraft.core.database import (
+from claudecraft.core.models import (
     CompletionCriteria,
     Task,
     TaskCompletionSpec,
@@ -115,7 +115,7 @@ class RalphLoopConfig:
         return default_methods.get(agent_type, self.default_verification)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RalphLoopConfig":
+    def from_dict(cls, data: dict[str, Any]) -> RalphLoopConfig:
         """Create RalphLoopConfig from dictionary.
 
         Args:
@@ -264,8 +264,8 @@ class RalphLoop:
     def __init__(
         self,
         config: RalphLoopConfig,
-        project: "Project | None" = None,
-        verifier: "PromiseVerifier | None" = None,
+        project: Project | None = None,
+        verifier: PromiseVerifier | None = None,
     ):
         """Initialize the Ralph loop manager.
 
@@ -513,7 +513,7 @@ class RalphLoop:
                 attempts.append(f"- Iteration {r['iteration']}: {status} {r['reason']}")
             if attempts:
                 previous_attempts = (
-                    f"\n## Previous Verification Attempts\n"
+                    "\n## Previous Verification Attempts\n"
                     + "\n".join(attempts)
                     + "\n"
                 )
@@ -847,7 +847,7 @@ class PromiseVerifier:
         except subprocess.TimeoutExpired:
             return False, f"Command timed out after {timeout}s"
         except FileNotFoundError:
-            return False, f"Command not found or working directory doesn't exist"
+            return False, "Command not found or working directory doesn't exist"
         except Exception as e:
             return False, f"Command failed: {e}"
 

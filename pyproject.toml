@@ -1,6 +1,6 @@
 [project]
 name = "claudecraft"
-version = "0.1.0"
+version = "1.0.0"
 description = "TUI-based spec-driven development orchestrator for Claude"
 readme = "README.md"
 license = { text = "MIT" }

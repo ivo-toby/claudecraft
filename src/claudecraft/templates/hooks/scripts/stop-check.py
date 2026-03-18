@@ -29,13 +29,12 @@ import os
 import re
 import subprocess
 import sys
-from pathlib import Path
 
 
 def read_transcript(transcript_path: str) -> str:
     """Read the conversation transcript."""
     try:
-        with open(transcript_path, 'r') as f:
+        with open(transcript_path) as f:
             return f.read()
     except (FileNotFoundError, PermissionError):
         return ""
@@ -132,7 +131,7 @@ def extract_spec_id(transcript_path: str) -> str | None:
 
     # Try to read transcript and find spec ID
     try:
-        with open(transcript_path, 'r') as f:
+        with open(transcript_path) as f:
             content = f.read()
             # Look for spec ID patterns
             match = re.search(r'spec[_-]id[:\s]+([a-zA-Z0-9_-]+)', content, re.IGNORECASE)

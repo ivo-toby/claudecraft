@@ -149,7 +149,7 @@ Once sufficient information is gathered, generate the BRD:
 After user approves the BRD content:
 
 1. Generate a spec ID based on the project name (kebab-case, e.g., `user-authentication`)
-2. Create the spec in database:
+2. Create the spec in the flat-file store:
    ```bash
    claudecraft spec-create {generated-id} --title "BRD Title" --source-type brd --status draft
    ```

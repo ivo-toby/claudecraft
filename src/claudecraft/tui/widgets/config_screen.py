@@ -1,11 +1,21 @@
 """Configuration screen for project-level settings."""
 
-from pathlib import Path
 
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.containers import Container, Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Label, ListView, ListItem, Static, TabbedContent, TabPane, TextArea
+from textual.widgets import (
+    Button,
+    Footer,
+    Header,
+    Label,
+    ListItem,
+    ListView,
+    Static,
+    TabbedContent,
+    TabPane,
+    TextArea,
+)
 
 
 class ConfigScreen(Screen):
@@ -136,20 +146,19 @@ class ConfigScreen(Screen):
                     id="editor-constitution"
                 )
 
-            with TabPane("Agents", id="tab-agents"):
-                with Horizontal(id="agents-container"):
-                    with Vertical(id="agents-left-panel"):
-                        yield Static("Available Agents", classes="panel-title")
-                        yield ListView(id="agents-list")
+            with TabPane("Agents", id="tab-agents"), Horizontal(id="agents-container"):
+                with Vertical(id="agents-left-panel"):
+                    yield Static("Available Agents", classes="panel-title")
+                    yield ListView(id="agents-list")
 
-                    with Vertical(id="agents-right-panel"):
-                        yield Static("Agent Editor", classes="panel-title")
-                        yield TextArea(
-                            "Select an agent to edit",
-                            language="markdown",
-                            theme="monokai",
-                            id="editor-agent"
-                        )
+                with Vertical(id="agents-right-panel"):
+                    yield Static("Agent Editor", classes="panel-title")
+                    yield TextArea(
+                        "Select an agent to edit",
+                        language="markdown",
+                        theme="monokai",
+                        id="editor-agent"
+                    )
 
         with Container(id="config-buttons"):
             yield Button("Save", variant="primary", id="btn-save")
@@ -226,7 +235,7 @@ class ConfigScreen(Screen):
 
         agents_dir = app.project.root / ".claude" / "agents"
         if not agents_dir.exists():
-            agents_list.append(ListItem(Label(f"Agents dir not found")))
+            agents_list.append(ListItem(Label("Agents dir not found")))
             return
 
         # Find all agent markdown files

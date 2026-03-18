@@ -1,52 +1,46 @@
 """Tests for CLI commands."""
 
 import json
-import sys
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
 from claudecraft.cli import (
-    main,
-    cmd_init,
-    cmd_status,
-    cmd_list_specs,
-    cmd_list_tasks,
-    cmd_task_update,
-    cmd_spec_create,
-    cmd_spec_update,
-    cmd_quick_create,
-    cmd_spec_get,
-    cmd_task_create,
-    cmd_task_followup,
-    cmd_agent_start,
-    cmd_agent_stop,
-    cmd_list_agents,
-    cmd_memory_stats,
-    cmd_memory_list,
-    cmd_memory_search,
-    cmd_memory_add,
-    cmd_memory_cleanup,
-    cmd_sync_export,
-    cmd_sync_import,
-    cmd_sync_compact,
-    cmd_sync_status,
-    cmd_worktree_create,
-    cmd_worktree_remove,
-    cmd_worktree_list,
-    cmd_worktree_commit,
-    cmd_merge_task,
-    cmd_tui,
-    cmd_ralph_status,
-    cmd_ralph_cancel,
     _build_completion_spec,
     _parse_completion_spec_from_dict,
     _validate_completion_criteria,
+    cmd_agent_start,
+    cmd_agent_stop,
+    cmd_init,
+    cmd_list_agents,
+    cmd_list_specs,
+    cmd_list_tasks,
+    cmd_memory_add,
+    cmd_memory_cleanup,
+    cmd_memory_list,
+    cmd_memory_search,
+    cmd_memory_stats,
+    cmd_quick_create,
+    cmd_ralph_cancel,
+    cmd_ralph_status,
+    cmd_spec_create,
+    cmd_spec_get,
+    cmd_spec_update,
+    cmd_status,
+    cmd_sync_compact,
+    cmd_sync_export,
+    cmd_sync_import,
+    cmd_sync_status,
+    cmd_task_create,
+    cmd_task_followup,
+    cmd_task_update,
+    cmd_worktree_list,
+    main,
 )
-from claudecraft.core.database import (
+from claudecraft.core.models import (
     ActiveRalphLoop,
     CompletionCriteria,
     Spec,
@@ -792,71 +786,55 @@ class TestCmdMemory:
 
 
 class TestCmdSync:
-    """Tests for sync commands."""
+    """Tests for sync commands (now deprecated - JSONL sync removed)."""
 
-    def test_sync_export(self, cli_project_with_data):
-        """Test sync export command."""
+    def test_sync_export_deprecated(self, cli_project_with_data):
+        """Test sync export returns deprecation error."""
         result = cmd_sync_export(json_output=False)
-        assert result == 0
+        assert result == 1
 
-    def test_sync_export_json(self, cli_project_with_data):
-        """Test sync export with JSON output."""
+    def test_sync_export_json_deprecated(self, cli_project_with_data):
+        """Test sync export JSON returns deprecation error."""
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             result = cmd_sync_export(json_output=True)
             output = json.loads(mock_stdout.getvalue())
 
-        assert result == 0
-        assert output["success"] is True
-        assert output["specs_exported"] == 2
-        assert output["tasks_exported"] == 2
+        assert result == 1
+        assert output["success"] is False
+        assert "error" in output
 
-    def test_sync_import(self, cli_project_with_data):
-        """Test sync import command."""
-        # Export first to create JSONL file
-        cmd_sync_export(json_output=False)
-
+    def test_sync_import_deprecated(self, cli_project_with_data):
+        """Test sync import returns deprecation error."""
         result = cmd_sync_import(json_output=False)
-        assert result == 0
+        assert result == 1
 
-
-    def test_sync_compact(self, cli_project_with_data):
-        """Test sync compact command."""
-        # Export first to create JSONL file
-        cmd_sync_export(json_output=False)
-
+    def test_sync_compact_deprecated(self, cli_project_with_data):
+        """Test sync compact returns deprecation error."""
         result = cmd_sync_compact(json_output=False)
-        assert result == 0
+        assert result == 1
 
-    def test_sync_compact_json(self, cli_project_with_data):
-        """Test sync compact with JSON output."""
-        cmd_sync_export(json_output=False)
-
+    def test_sync_compact_json_deprecated(self, cli_project_with_data):
+        """Test sync compact JSON returns deprecation error."""
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             result = cmd_sync_compact(json_output=True)
             output = json.loads(mock_stdout.getvalue())
 
-        assert result == 0
-        assert output["success"] is True
-        assert "lines_before" in output
-        assert "lines_after" in output
+        assert result == 1
+        assert output["success"] is False
 
-    def test_sync_status(self, cli_project):
-        """Test sync status command."""
+    def test_sync_status_deprecated(self, cli_project):
+        """Test sync status returns deprecation error."""
         result = cmd_sync_status(json_output=False)
-        assert result == 0
+        assert result == 1
 
-    def test_sync_status_json(self, cli_project_with_data):
-        """Test sync status with JSON output."""
-        cmd_sync_export(json_output=False)
-
+    def test_sync_status_json_deprecated(self, cli_project_with_data):
+        """Test sync status JSON returns deprecation error."""
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             result = cmd_sync_status(json_output=True)
             output = json.loads(mock_stdout.getvalue())
 
-        assert result == 0
-        assert output["success"] is True
-        assert "sync_enabled" in output
-        assert "database" in output
+        assert result == 1
+        assert output["success"] is False
 
 
 @pytest.fixture
@@ -994,14 +972,14 @@ class TestMain:
         assert result == 0
 
     def test_main_sync_commands(self, cli_project_with_data):
-        """Test main with sync commands."""
+        """Test main with sync commands (deprecated, should return 1)."""
         with patch("sys.argv", ["claudecraft", "sync-export"]):
             result = main()
-        assert result == 0
+        assert result == 1
 
         with patch("sys.argv", ["claudecraft", "sync-status"]):
             result = main()
-        assert result == 0
+        assert result == 1
 
 
 class TestErrorHandling:
@@ -1666,6 +1644,22 @@ class TestMainWithCompletionOptions:
         assert task.completion_spec.outcome == "Docs complete"
 
 
+def _make_ralph_loop(task_id: str, agent_type: str, max_iterations: int = 10) -> ActiveRalphLoop:
+    """Helper to create an ActiveRalphLoop for testing."""
+    now = datetime.now()
+    return ActiveRalphLoop(
+        id=0,
+        task_id=task_id,
+        agent_type=agent_type,
+        iteration=0,
+        max_iterations=max_iterations,
+        started_at=now,
+        updated_at=now,
+        verification_results=[],
+        status="running",
+    )
+
+
 class TestRalphStatusCommand:
     """Tests for ralph-status CLI command."""
 
@@ -1690,12 +1684,8 @@ class TestRalphStatusCommand:
 
     def test_ralph_status_with_loop(self, cli_project_with_data):
         """Test ralph-status with an active loop."""
-        # Register a Ralph loop
-        cli_project_with_data.db.register_ralph_loop(
-            task_id="TASK-001",
-            agent_type="coder",
-            max_iterations=10,
-        )
+        # Save a Ralph loop
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
 
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             result = cmd_ralph_status(json_output=True)
@@ -1711,9 +1701,9 @@ class TestRalphStatusCommand:
 
     def test_ralph_status_filter_by_task(self, cli_project_with_data):
         """Test ralph-status filtered by task ID."""
-        # Register multiple loops
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.register_ralph_loop("TASK-002", "reviewer", 5)
+        # Save multiple loops
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-002", "reviewer", 5))
 
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             result = cmd_ralph_status(task_id="TASK-001", json_output=True)
@@ -1725,12 +1715,12 @@ class TestRalphStatusCommand:
 
     def test_ralph_status_filter_by_status(self, cli_project_with_data):
         """Test ralph-status filtered by status."""
-        # Register and complete a loop
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.complete_ralph_loop("TASK-001", "coder", success=True)
+        # Save and complete a loop
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
+        cli_project_with_data.db.complete_ralph_loop("TASK-001", "coder", verification_results=[])
 
-        # Register a running loop
-        cli_project_with_data.db.register_ralph_loop("TASK-002", "reviewer", 5)
+        # Save a running loop
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-002", "reviewer", 5))
 
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             result = cmd_ralph_status(status="running", json_output=True)
@@ -1756,8 +1746,8 @@ class TestRalphCancelCommand:
 
     def test_ralph_cancel_success(self, cli_project_with_data):
         """Test successfully cancelling a loop."""
-        # Register a loop
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
+        # Save a loop
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
 
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             result = cmd_ralph_cancel(task_id="TASK-001", json_output=True)
@@ -1773,9 +1763,9 @@ class TestRalphCancelCommand:
 
     def test_ralph_cancel_specific_agent(self, cli_project_with_data):
         """Test cancelling a specific agent's loop."""
-        # Register loops for multiple agents
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "reviewer", 5)
+        # Save loops for multiple agents
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "reviewer", 5))
 
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             result = cmd_ralph_cancel(
@@ -1794,9 +1784,9 @@ class TestRalphCancelCommand:
 
     def test_ralph_cancel_already_completed(self, cli_project_with_data):
         """Test cancelling an already completed loop."""
-        # Register and complete a loop
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.complete_ralph_loop("TASK-001", "coder", success=True)
+        # Save and complete a loop
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
+        cli_project_with_data.db.complete_ralph_loop("TASK-001", "coder", verification_results=[])
 
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             result = cmd_ralph_cancel(task_id="TASK-001", json_output=True)
@@ -1810,62 +1800,70 @@ class TestRalphCancelCommand:
 class TestRalphDatabaseOperations:
     """Tests for Ralph loop database operations."""
 
-    def test_register_ralph_loop(self, cli_project_with_data):
-        """Test registering a new Ralph loop."""
-        loop_id = cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        assert loop_id > 0
+    def test_save_ralph_loop(self, cli_project_with_data):
+        """Test saving a new Ralph loop."""
+        loop = _make_ralph_loop("TASK-001", "coder", 10)
+        cli_project_with_data.db.save_ralph_loop(loop)
 
-        loop = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
-        assert loop is not None
-        assert loop.task_id == "TASK-001"
-        assert loop.agent_type == "coder"
-        assert loop.iteration == 0
-        assert loop.max_iterations == 10
-        assert loop.status == "running"
+        fetched = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
+        assert fetched is not None
+        assert fetched.task_id == "TASK-001"
+        assert fetched.agent_type == "coder"
+        assert fetched.iteration == 0
+        assert fetched.max_iterations == 10
+        assert fetched.status == "running"
 
     def test_update_ralph_loop_iteration(self, cli_project_with_data):
         """Test updating loop iteration."""
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.update_ralph_loop("TASK-001", "coder", iteration=5)
+        loop = _make_ralph_loop("TASK-001", "coder", 10)
+        cli_project_with_data.db.save_ralph_loop(loop)
 
-        loop = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
-        assert loop.iteration == 5
+        fetched = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
+        fetched.iteration = 5
+        fetched.updated_at = datetime.now()
+        cli_project_with_data.db.save_ralph_loop(fetched)
+
+        updated = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
+        assert updated.iteration == 5
 
     def test_update_ralph_loop_verification_result(self, cli_project_with_data):
         """Test adding verification result to loop."""
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.update_ralph_loop(
-            "TASK-001",
-            "coder",
-            iteration=1,
-            verification_result={
+        loop = _make_ralph_loop("TASK-001", "coder", 10)
+        cli_project_with_data.db.save_ralph_loop(loop)
+
+        fetched = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
+        fetched.iteration = 1
+        fetched.verification_results = [
+            {
                 "iteration": 1,
                 "promise_found": True,
                 "verified": False,
                 "reason": "Test failed",
-            },
-        )
+            }
+        ]
+        fetched.updated_at = datetime.now()
+        cli_project_with_data.db.save_ralph_loop(fetched)
 
-        loop = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
-        assert len(loop.verification_results) == 1
-        assert loop.verification_results[0]["verified"] is False
+        updated = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
+        assert len(updated.verification_results) == 1
+        assert updated.verification_results[0]["verified"] is False
 
     def test_list_ralph_loops(self, cli_project_with_data):
         """Test listing all Ralph loops."""
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.register_ralph_loop("TASK-002", "reviewer", 5)
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-002", "reviewer", 5))
 
-        loops = cli_project_with_data.db.list_ralph_loops()
+        loops = cli_project_with_data.db.list_active_ralph_loops()
         assert len(loops) == 2
 
     def test_list_ralph_loops_by_status(self, cli_project_with_data):
         """Test listing loops filtered by status."""
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.register_ralph_loop("TASK-002", "reviewer", 5)
-        cli_project_with_data.db.complete_ralph_loop("TASK-001", "coder", success=True)
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-002", "reviewer", 5))
+        cli_project_with_data.db.complete_ralph_loop("TASK-001", "coder", verification_results=[])
 
-        running = cli_project_with_data.db.list_ralph_loops(status="running")
-        completed = cli_project_with_data.db.list_ralph_loops(status="completed")
+        running = cli_project_with_data.db.list_active_ralph_loops(status="running")
+        completed = cli_project_with_data.db.list_active_ralph_loops(status="completed")
 
         assert len(running) == 1
         assert running[0].task_id == "TASK-002"
@@ -1874,7 +1872,7 @@ class TestRalphDatabaseOperations:
 
     def test_cancel_ralph_loop(self, cli_project_with_data):
         """Test cancelling a loop."""
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
         cancelled = cli_project_with_data.db.cancel_ralph_loop("TASK-001", "coder")
 
         assert cancelled is True
@@ -1883,27 +1881,34 @@ class TestRalphDatabaseOperations:
 
     def test_complete_ralph_loop_success(self, cli_project_with_data):
         """Test completing a loop successfully."""
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.complete_ralph_loop("TASK-001", "coder", success=True)
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
+        cli_project_with_data.db.complete_ralph_loop(
+            "TASK-001", "coder", verification_results=[{"verified": True}]
+        )
 
         loop = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
         assert loop.status == "completed"
 
     def test_complete_ralph_loop_failure(self, cli_project_with_data):
-        """Test completing a loop with failure."""
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.complete_ralph_loop("TASK-001", "coder", success=False)
+        """Test completing a loop with failure (cancelled state)."""
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
+        cli_project_with_data.db.cancel_ralph_loop("TASK-001", "coder")
 
         loop = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
-        assert loop.status == "failed"
+        assert loop.status == "cancelled"
 
     def test_ralph_loop_progress_percent(self, cli_project_with_data):
         """Test progress percent calculation."""
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
-        cli_project_with_data.db.update_ralph_loop("TASK-001", "coder", iteration=5)
+        loop = _make_ralph_loop("TASK-001", "coder", 10)
+        cli_project_with_data.db.save_ralph_loop(loop)
 
-        loop = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
-        assert loop.progress_percent == 50.0
+        fetched = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
+        fetched.iteration = 5
+        fetched.updated_at = datetime.now()
+        cli_project_with_data.db.save_ralph_loop(fetched)
+
+        updated = cli_project_with_data.db.get_ralph_loop("TASK-001", "coder")
+        assert updated.progress_percent == 50.0
 
 
 class TestMainWithRalphCommands:
@@ -1911,7 +1916,7 @@ class TestMainWithRalphCommands:
 
     def test_main_ralph_status(self, cli_project):
         """Test main with ralph-status command."""
-        with patch("sys.argv", ["claudecraft", "ralph-status", "--json"]):
+        with patch("sys.argv", ["claudecraft", "--json", "ralph-status"]):
             with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                 result = main()
                 output = json.loads(mock_stdout.getvalue())
@@ -1921,10 +1926,10 @@ class TestMainWithRalphCommands:
 
     def test_main_ralph_cancel(self, cli_project_with_data):
         """Test main with ralph-cancel command."""
-        # Register a loop first
-        cli_project_with_data.db.register_ralph_loop("TASK-001", "coder", 10)
+        # Save a loop first
+        cli_project_with_data.db.save_ralph_loop(_make_ralph_loop("TASK-001", "coder", 10))
 
-        with patch("sys.argv", ["claudecraft", "ralph-cancel", "TASK-001", "--json"]):
+        with patch("sys.argv", ["claudecraft", "--json", "ralph-cancel", "TASK-001"]):
             with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                 result = main()
                 output = json.loads(mock_stdout.getvalue())

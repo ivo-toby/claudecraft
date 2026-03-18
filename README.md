@@ -16,6 +16,8 @@
 
 ---
 
+> **Upgrading from a previous version?** ClaudeCraft v1.0 replaces SQLite with flat-file JSON storage. Run `claudecraft init --update` to update project templates, then run `claudecraft migrate` to convert your existing database. Your SQLite data will be preserved as a backup.
+
 ## What is ClaudeCraft?
 
 ClaudeCraft transforms how you build software. Feed it a business requirements document, and watch as AI agents autonomously architect, implement, test, and review your code — all while you monitor progress in a beautiful terminal UI. AutoClaude meets SpecKit.
@@ -67,7 +69,7 @@ You stay in control through human approval gates during specification, then let 
 
 - **5 Specialized Agents** — Architect, Coder, Reviewer, Tester, QA
 - **6 Parallel Execution Slots** — Run multiple agents simultaneously
-- **Database-Driven Task Management** — Real-time status tracking
+- **File-Driven Task Management** — Real-time status tracking
 - **Automatic Agent Registration** — TUI shows which agent is working on what
 
 ### Git Integration
@@ -87,10 +89,10 @@ You stay in control through human approval gates during specification, then let 
 
 ### Persistence & Memory
 
-- **SQLite Database** — Fast local storage for specs, tasks, and agents
+- **Flat-File JSON Store** — Git-friendly local storage for specs, tasks, and agents
+- **Atomic Writes** — Crash-safe persistence via temp-file + `os.replace`
 - **Cross-Session Memory** — Entity extraction and context persistence
 - **Memory Injection** — Relevant context automatically included in agent prompts
-- **JSONL Sync** — Git-friendly database synchronization
 
 ### Intelligent Task Management
 
@@ -154,8 +156,8 @@ claudecraft init
 
 This creates:
 
-- `.claudecraft/` — Configuration and database
-- `specs/` — Specification documents
+- `.claudecraft/` — Configuration and memory
+- `specs/` — Specification documents (definitions + task JSON files)
 - `.claude/` — Agent definitions, skills, and commands
 - `.worktrees/` — Task execution environments (git-ignored)
 
@@ -239,9 +241,10 @@ claudecraft tui [--path PATH]                  # Launch terminal UI
 
 ```bash
 claudecraft list-specs [--status STATUS] [--json]
-claudecraft spec-create <id> [--title TITLE] [--source-type brd|prd]
+claudecraft spec-create <id> [--title TITLE] [--source-type brd|prd|quick]
 claudecraft spec-update <id> [--status STATUS] [--title TITLE]
 claudecraft spec-get <id> [--json]
+claudecraft quick-create <description> [--id ID]  # Create a lightweight quick-task spec
 ```
 
 ### Task Management
@@ -283,7 +286,8 @@ claudecraft ralph-cancel <task-id> [--agent-type TYPE] [--json]
 ### Worktree & Merge
 
 ```bash
-claudecraft worktree-create <task-id> [--base main]
+claudecraft worktree-create <task-id> [--base main] [--spec SPEC] [--no-bootstrap]
+claudecraft worktree-bootstrap <task-id> [--fail-fast]
 claudecraft worktree-commit <task-id> "message"
 claudecraft worktree-list [--json]
 claudecraft worktree-remove <task-id> [--force]
@@ -302,20 +306,13 @@ claudecraft memory-cleanup [--days 90]                # Remove old entries
 
 **Entity types:** `file`, `decision`, `pattern`, `dependency`, `note`
 
-### JSONL Sync (Git Collaboration)
+### Migration (from SQLite)
 
 ```bash
-claudecraft sync-export                  # Export database to JSONL file
-claudecraft sync-import                  # Import from JSONL to database
-claudecraft sync-compact                 # Compact JSONL (remove old changes)
-claudecraft sync-status                  # Show sync status and statistics
+claudecraft migrate                      # Migrate SQLite database to flat-file store
 ```
 
-JSONL sync enables git-based collaboration:
-
-1. Changes are automatically recorded to `specs.jsonl`
-2. Commit and push the JSONL file
-3. Collaborators pull and changes are imported on next `claudecraft` run
+If you are upgrading from a pre-v1.0 ClaudeCraft installation, run `claudecraft migrate` to convert your SQLite database to the new flat-file JSON store. The original database file is preserved as a backup.
 
 ### Documentation Generation
 
@@ -354,7 +351,7 @@ The `execute` command runs the full agent pipeline autonomously:
 2. **Worktree Creation** — Creates isolated git worktree for each task
 3. **Pipeline Execution** — Runs each task through: Coder → Reviewer → Tester → QA
 4. **Claude Code Integration** — Spawns real Claude Code agents in headless mode
-5. **Status Tracking** — Updates database in real-time (visible in TUI)
+5. **Status Tracking** — Updates state files in real-time (visible in TUI)
 
 **Examples:**
 
@@ -540,7 +537,7 @@ claudecraft list-tasks --spec auth-feature --json | jq '.tasks[] | select(.metad
 ClaudeCraft supports task-level completion criteria using the "Ralph Loop" methodology. This ensures agents truly complete their work before moving on.
 
 ```python
-from claudecraft.core.database import (
+from claudecraft.core.models import (
     Task, TaskCompletionSpec, CompletionCriteria, VerificationMethod
 )
 
@@ -682,7 +679,7 @@ claudecraft init
 
 # 6. Decompose into executable tasks
 /claudecraft.tasks {spec-id}
-# Creates tasks directly in database with dependencies
+# Creates task files with dependencies
 
 # 7. Start autonomous implementation
 /claudecraft.implement {spec-id}
@@ -818,14 +815,19 @@ Each task flows through specialized agents with automatic retry and escalation.
 project/
 ├── .claudecraft/
 │   ├── config.yaml          # Configuration
-│   ├── database.db          # SQLite database
+│   ├── state/               # Runtime state (git-ignored)
+│   │   └── {spec-id}.json   # Task statuses, agent slots
+│   ├── agents/              # Active agent registrations (git-ignored)
+│   ├── logs/                # Execution logs (git-ignored)
 │   └── memory/              # Cross-session memory
 ├── specs/
 │   └── {spec-id}/
 │       ├── brd.md           # Business requirements
 │       ├── prd.md           # Product requirements
 │       ├── spec.md          # Functional specification
-│       └── plan.md          # Implementation plan
+│       ├── plan.md          # Implementation plan
+│       └── tasks/           # Task definitions (JSON)
+│           └── {task-id}.json
 ├── .claude/
 │   ├── agents/              # Agent definitions
 │   ├── skills/              # Auto-loading skills
@@ -863,10 +865,6 @@ execution:
   timeout_minutes: 30 # Timeout per agent execution (in minutes)
   worktree_dir: .worktrees # Directory for task worktrees
 
-database:
-  path: .claudecraft/claudecraft.db
-  sync_jsonl: true # Enable JSONL sync for git collaboration
-
 hooks:
   stop:
     enabled: true # Enable stop hook for task completion checks
@@ -893,7 +891,6 @@ ralph:
 | `agents.<type>.model`          | -            | Model for specific agent (opus/sonnet/haiku) |
 | `execution.max_iterations`     | 10           | Max retries across pipeline stages           |
 | `execution.timeout_minutes`    | 10           | Timeout per agent execution                  |
-| `database.sync_jsonl`          | true         | Auto-sync changes to JSONL for git           |
 | `hooks.stop.enabled`           | true         | Enable stop hook for completion checks       |
 | `hooks.stop.require_commit`    | false        | Block if uncommitted changes exist           |
 | `hooks.stop.require_tests`     | false        | Block if tests weren't run                   |

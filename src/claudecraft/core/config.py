@@ -6,7 +6,6 @@ from typing import Any
 
 import yaml
 
-
 DEFAULT_CONFIG = {
     "version": "1.0",
     "project": {
@@ -42,7 +41,6 @@ DEFAULT_CONFIG = {
     },
     "database": {
         "path": ".claudecraft/claudecraft.db",
-        "sync_jsonl": True,
     },
     "hooks": {
         "stop": {
@@ -133,7 +131,6 @@ class Config:
     timeout_minutes: int
     worktree_dir: str
     database_path: str
-    sync_jsonl: bool
     config_path: Path
     project_root: Path
     # Bootstrap commands to run after worktree creation
@@ -217,7 +214,6 @@ class Config:
             worktree_dir=merged["execution"]["worktree_dir"],
             bootstrap_commands=bootstrap_commands,
             database_path=merged["database"]["path"],
-            sync_jsonl=merged["database"]["sync_jsonl"],
             config_path=path,
             project_root=project_root,
             # Hooks configuration
